@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SubsAI - Hebrew Video Subtitle App
 
-## Getting Started
+Upload a video, transcribe with Whisper (Groq or OpenAI), translate to Hebrew with Gemini, customize subtitle style (size, color), add keyword images/GIFs and royalty-free background music, then export with burned-in subtitles. Includes a content calendar for Instagram, TikTok, and YouTube planning.
 
-First, run the development server:
+## Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Next.js** (App Router) on Vercel
+- **Groq / OpenAI** Whisper for transcription
+- **Gemini 2.5 Flash-Lite** for Hebrew translation
+- **Nano Banana 2** (via Gemini) for AI image generation
+- **Pexels / GIPHY** for stock images and GIFs
+- **Pixabay Music** for royalty-free background tracks
+- **ffmpeg.wasm** for client-side video processing
+- **Neon** Serverless Postgres for calendar storage
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clone the repo
+2. `npm install`
+3. Copy `.env.example` to `.env.local` and fill in your API keys
+4. Run the SQL in `schema.sql` on your Neon database
+5. `npm run dev`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API Keys (all free tier)
 
-## Learn More
+| Service | Get key at |
+|---------|-----------|
+| Groq | https://console.groq.com |
+| OpenAI (optional) | https://platform.openai.com |
+| Gemini | https://aistudio.google.com |
+| Pexels | https://www.pexels.com/api |
+| GIPHY | https://developers.giphy.com |
+| Pixabay | https://pixabay.com/api/docs |
+| Neon | https://neon.tech |
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy to Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push to GitHub
+2. Import in Vercel
+3. Add environment variables
+4. Deploy
