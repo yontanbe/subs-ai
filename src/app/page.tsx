@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 const FEATURES = [
   {
@@ -34,17 +37,20 @@ const FEATURES = [
 ];
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === "authenticated";
+
   return (
     <div className="hero-gradient flex flex-1 flex-col items-center px-4 pt-24 pb-16 sm:pt-32">
-      {/* Badge */}
       <div className="animate-fade-up flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 backdrop-blur-sm">
         <span className="h-1.5 w-1.5 rounded-full bg-[#3dd6c8] animate-pulse" />
         <span className="text-xs font-medium text-white/50">
-          100% free tier stack
+          {isLoggedIn
+            ? `Welcome, ${session.user?.name || session.user?.email}`
+            : "100% free tier stack"}
         </span>
       </div>
 
-      {/* Headline */}
       <h1 className="animate-fade-up stagger-1 mt-8 max-w-2xl text-center text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
         <span className="text-white/90">Video subtitles,</span>
         <br />
@@ -54,28 +60,45 @@ export default function Home() {
       </h1>
 
       <p className="animate-fade-up stagger-2 mt-5 max-w-md text-center text-[15px] leading-relaxed text-white/40">
-        Upload a video. Whisper transcribes it. Gemini translates to Hebrew. You
-        style the subtitles, pick background music, and export—all in the
+        Upload a video. Whisper transcribes it. Gemini translates to Hebrew.
+        Style your subtitles, pick background music, and export — all in the
         browser.
       </p>
 
-      {/* CTAs */}
       <div className="animate-fade-up stagger-3 mt-10 flex flex-col gap-3 sm:flex-row">
-        <Link
-          href="/editor"
-          className="btn-glow inline-flex h-11 items-center justify-center rounded-xl px-7 text-[13px] font-semibold text-white"
-        >
-          Open Editor
-        </Link>
-        <Link
-          href="/calendar"
-          className="btn-secondary inline-flex h-11 items-center justify-center rounded-xl px-7 text-[13px] font-semibold text-white/70"
-        >
-          Content Calendar
-        </Link>
+        {isLoggedIn ? (
+          <>
+            <Link
+              href="/editor"
+              className="btn-glow inline-flex h-11 items-center justify-center rounded-xl px-7 text-[13px] font-semibold text-white"
+            >
+              Open Editor
+            </Link>
+            <Link
+              href="/calendar"
+              className="btn-secondary inline-flex h-11 items-center justify-center rounded-xl px-7 text-[13px] font-semibold text-white/70"
+            >
+              Content Calendar
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link
+              href="/register"
+              className="btn-glow inline-flex h-11 items-center justify-center rounded-xl px-7 text-[13px] font-semibold text-white"
+            >
+              Get Started Free
+            </Link>
+            <Link
+              href="/login"
+              className="btn-secondary inline-flex h-11 items-center justify-center rounded-xl px-7 text-[13px] font-semibold text-white/70"
+            >
+              Sign In
+            </Link>
+          </>
+        )}
       </div>
 
-      {/* Feature cards */}
       <div className="mt-20 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
         {FEATURES.map((f, i) => (
           <div
@@ -100,7 +123,6 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Tech line */}
       <div className="animate-fade-up stagger-5 mt-16 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-medium uppercase tracking-wider text-white/20">
         <span>Groq</span>
         <span className="text-white/10">·</span>

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { MusicTrack } from "@/types";
 
 export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get("q") || "background";
+  const q = (req.nextUrl.searchParams.get("q") || "background").slice(0, 100);
   const apiKey = process.env.PIXABAY_API_KEY;
 
   if (!apiKey) {
@@ -15,48 +16,35 @@ export async function GET(req: NextRequest) {
 
   try {
     const res = await fetch(
-      `https://pixabay.com/api/videos/?key=${apiKey}&q=${encodeURIComponent(q)}&per_page=12`
+      `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(q + " music audio")}&per_page=20`
     );
 
     if (!res.ok) {
-      const fallbackRes = await fetch(
-        `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(q)}&category=music&per_page=12`
-      );
-      if (!fallbackRes.ok) {
-        throw new Error("Pixabay API error");
-      }
+      console.error("Pixabay API error:", res.status);
+      return NextResponse.json({ tracks: [] });
     }
 
-    const musicRes = await fetch(
-      `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(q + " music")}&per_page=20`
+    const data = await res.json();
+
+    const tracks: MusicTrack[] = (data.hits ?? []).map(
+      (hit: {
+        id: number;
+        tags: string;
+        previewURL?: string;
+        webformatURL?: string;
+      }) => ({
+        id: hit.id,
+        title: hit.tags || "Untitled Track",
+        url: hit.previewURL || hit.webformatURL || "",
+        previewUrl: hit.previewURL || hit.webformatURL || "",
+        duration: 0,
+        tags: hit.tags || "",
+      })
     );
-
-    const tracks: Array<{
-      id: number;
-      title: string;
-      url: string;
-      previewUrl: string;
-      duration: number;
-      tags: string;
-    }> = [];
-
-    if (musicRes.ok) {
-      const data = await musicRes.json();
-      for (const hit of data.hits ?? []) {
-        tracks.push({
-          id: hit.id,
-          title: hit.tags || "Untitled Track",
-          url: hit.previewURL || hit.webformatURL || "",
-          previewUrl: hit.previewURL || hit.webformatURL || "",
-          duration: 0,
-          tags: hit.tags || "",
-        });
-      }
-    }
 
     return NextResponse.json({ tracks });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to fetch music";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Music search error:", err);
+    return NextResponse.json({ tracks: [] });
   }
 }

@@ -1,17 +1,18 @@
-# SubsAI - Hebrew Video Subtitle App
+# SubsAI — Hebrew Video Subtitle App
 
-Upload a video, transcribe with Whisper (Groq or OpenAI), translate to Hebrew with Gemini, customize subtitle style (size, color), add keyword images/GIFs and royalty-free background music, then export with burned-in subtitles. Includes a content calendar for Instagram, TikTok, and YouTube planning.
+Upload a video, transcribe with Whisper (Groq or OpenAI), translate to Hebrew with Gemini, customize subtitle style (size, color), add keyword images/GIFs and royalty-free background music, then export with burned-in subtitles. Includes per-user authentication and a content calendar for Instagram, TikTok, and YouTube planning.
 
 ## Tech Stack
 
 - **Next.js** (App Router) on Vercel
+- **Auth.js v5** with credentials provider + Neon-backed user storage
 - **Groq / OpenAI** Whisper for transcription
 - **Gemini 2.5 Flash-Lite** for Hebrew translation
 - **Nano Banana 2** (via Gemini) for AI image generation
 - **Pexels / GIPHY** for stock images and GIFs
 - **Pixabay Music** for royalty-free background tracks
 - **ffmpeg.wasm** for client-side video processing
-- **Neon** Serverless Postgres for calendar storage
+- **Neon** Serverless Postgres for user data and calendar storage
 
 ## Setup
 
@@ -19,7 +20,8 @@ Upload a video, transcribe with Whisper (Groq or OpenAI), translate to Hebrew wi
 2. `npm install`
 3. Copy `.env.example` to `.env.local` and fill in your API keys
 4. Run the SQL in `schema.sql` on your Neon database
-5. `npm run dev`
+5. Generate an auth secret: `npx auth secret`
+6. `npm run dev`
 
 ## API Keys (all free tier)
 
@@ -37,5 +39,5 @@ Upload a video, transcribe with Whisper (Groq or OpenAI), translate to Hebrew wi
 
 1. Push to GitHub
 2. Import in Vercel
-3. Add environment variables
+3. Add environment variables (including `AUTH_SECRET`)
 4. Deploy

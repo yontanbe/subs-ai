@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { MediaItem } from "@/types";
 
 export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
-  const { keywords, source } = await req.json();
+  let body: { keywords?: unknown; source?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const { keywords, source } = body;
 
   if (!Array.isArray(keywords) || keywords.length === 0) {
     return NextResponse.json(
@@ -12,27 +20,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const query = keywords.join(" ");
+  const safeKeywords = keywords
+    .filter((k): k is string => typeof k === "string")
+    .map((k) => k.slice(0, 100))
+    .slice(0, 10);
+
+  if (safeKeywords.length === 0) {
+    return NextResponse.json(
+      { error: "No valid keywords" },
+      { status: 400 }
+    );
+  }
+
+  const query = safeKeywords.join(" ");
 
   if (source === "nano-banana") {
     const items = await fetchNanoBanana(query);
     return NextResponse.json({ items });
   }
 
-  const [pexelsItems, giphyItems, aiItems] = await Promise.all([
+  const results = await Promise.allSettled([
     fetchPexels(query),
     fetchGiphy(query),
     fetchNanoBanana(query),
   ]);
 
-  return NextResponse.json({
-    items: [...aiItems, ...pexelsItems, ...giphyItems],
-  });
+  const items: MediaItem[] = results.flatMap((r) =>
+    r.status === "fulfilled" ? r.value : []
+  );
+
+  return NextResponse.json({ items });
 }
 
-async function fetchPexels(
-  query: string
-): Promise<Array<{ id: string; type: string; url: string; thumbnailUrl: string; alt: string; source: string }>> {
+async function fetchPexels(query: string): Promise<MediaItem[]> {
   const apiKey = process.env.PEXELS_API_KEY;
   if (!apiKey) return [];
 
@@ -44,7 +64,7 @@ async function fetchPexels(
     if (!res.ok) return [];
     const data = await res.json();
     return (data.photos ?? []).map(
-      (p: { id: number; src: { medium: string; small: string }; alt: string }) => ({
+      (p: { id: number; src: { medium: string; small: string }; alt: string }): MediaItem => ({
         id: `pexels-${p.id}`,
         type: "image",
         url: p.src.medium,
@@ -58,9 +78,7 @@ async function fetchPexels(
   }
 }
 
-async function fetchGiphy(
-  query: string
-): Promise<Array<{ id: string; type: string; url: string; thumbnailUrl: string; alt: string; source: string }>> {
+async function fetchGiphy(query: string): Promise<MediaItem[]> {
   const apiKey = process.env.GIPHY_API_KEY;
   if (!apiKey) return [];
 
@@ -74,11 +92,8 @@ async function fetchGiphy(
       (g: {
         id: string;
         title: string;
-        images: {
-          fixed_height: { url: string };
-          fixed_height_small: { url: string };
-        };
-      }) => ({
+        images: { fixed_height: { url: string }; fixed_height_small: { url: string } };
+      }): MediaItem => ({
         id: `giphy-${g.id}`,
         type: "gif",
         url: g.images.fixed_height.url,
@@ -92,9 +107,7 @@ async function fetchGiphy(
   }
 }
 
-async function fetchNanoBanana(
-  prompt: string
-): Promise<Array<{ id: string; type: string; url: string; thumbnailUrl: string; alt: string; source: string }>> {
+async function fetchNanoBanana(prompt: string): Promise<MediaItem[]> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return [];
 
@@ -109,14 +122,12 @@ async function fetchNanoBanana(
             {
               parts: [
                 {
-                  text: `Generate a simple, clean illustration for: "${prompt}". Make it suitable as a video overlay.`,
+                  text: `Generate a simple, clean illustration for: "${prompt.slice(0, 200)}". Make it suitable as a video overlay.`,
                 },
               ],
             },
           ],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
-          },
+          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
         }),
       }
     );
