@@ -30,39 +30,51 @@ export default function SubtitleEditor({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="animate-fade-up glass rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-zinc-300">
-          Subtitles ({segments.length} segments)
-        </h3>
+        <div>
+          <h3 className="text-[13px] font-semibold text-white/80">
+            Subtitles
+          </h3>
+          <p className="text-[11px] text-white/30">
+            {segments.length} segments detected
+          </p>
+        </div>
         <button
           onClick={onTranslate}
           disabled={isTranslating || segments.length === 0}
-          className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl bg-[#3dd6c8]/10 border border-[#3dd6c8]/20 px-4 py-2 text-[12px] font-semibold text-[#3dd6c8] transition hover:bg-[#3dd6c8]/15 disabled:opacity-50"
         >
+          {isTranslating && <span className="spinner" style={{ borderTopColor: "#3dd6c8" }} />}
           {isTranslating
             ? "Translating…"
             : isTranslated
-              ? "Re-translate to Hebrew"
+              ? "Re-translate"
               : "Translate to Hebrew"}
         </button>
       </div>
 
-      <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+      <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
         {segments.map((seg, i) => (
           <div
             key={i}
-            className="flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 p-2"
+            className="group flex items-start gap-3 rounded-xl border border-white/[0.04] bg-white/[0.02] p-3 transition hover:border-white/[0.08] hover:bg-white/[0.04]"
           >
-            <span className="mt-1.5 shrink-0 text-[10px] font-mono text-zinc-500">
-              {formatTime(seg.start)}–{formatTime(seg.end)}
-            </span>
+            <div className="mt-1 flex shrink-0 flex-col items-center">
+              <span className="font-mono text-[10px] text-[#e09145]/60">
+                {formatTime(seg.start)}
+              </span>
+              <div className="my-0.5 h-3 w-px bg-white/10" />
+              <span className="font-mono text-[10px] text-white/20">
+                {formatTime(seg.end)}
+              </span>
+            </div>
             <textarea
               value={seg.text}
               onChange={(e) => updateText(i, e.target.value)}
               rows={1}
               dir="auto"
-              className="flex-1 resize-none rounded bg-transparent px-1 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="flex-1 resize-none rounded-lg bg-transparent px-1 text-[13px] leading-relaxed text-white/80 placeholder:text-white/20 focus:outline-none"
             />
           </div>
         ))}

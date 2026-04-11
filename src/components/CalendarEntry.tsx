@@ -2,10 +2,10 @@
 
 import type { CalendarEntry as CalendarEntryType } from "@/types";
 
-const PLATFORM_STYLES: Record<string, { bg: string; label: string }> = {
-  instagram: { bg: "bg-pink-500/20 text-pink-300", label: "IG" },
-  tiktok: { bg: "bg-zinc-600/30 text-zinc-300", label: "TT" },
-  youtube: { bg: "bg-red-500/20 text-red-300", label: "YT" },
+const PLATFORM_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  instagram: { bg: "bg-pink-500/15", text: "text-pink-400", label: "IG" },
+  tiktok: { bg: "bg-white/[0.06]", text: "text-white/50", label: "TT" },
+  youtube: { bg: "bg-red-500/15", text: "text-red-400", label: "YT" },
 };
 
 interface Props {
@@ -14,30 +14,26 @@ interface Props {
 }
 
 export default function CalendarEntryCard({ entry, onDelete }: Props) {
-  const platformStyle = PLATFORM_STYLES[entry.platform] ?? PLATFORM_STYLES.youtube;
+  const ps = PLATFORM_STYLES[entry.platform] ?? PLATFORM_STYLES.youtube;
 
   return (
-    <div className="group flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-2">
+    <div className="group flex items-center gap-1.5 rounded-md bg-white/[0.03] px-1.5 py-1 transition hover:bg-white/[0.06]">
       <span
-        className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${platformStyle.bg}`}
+        className={`shrink-0 rounded px-1 py-px text-[8px] font-bold uppercase ${ps.bg} ${ps.text}`}
       >
-        {platformStyle.label}
+        {ps.label}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium text-zinc-200">
-          {entry.title}
-        </p>
-        {entry.description && (
-          <p className="truncate text-[10px] text-zinc-500">
-            {entry.description}
-          </p>
-        )}
-      </div>
+      <span className="min-w-0 flex-1 truncate text-[10px] text-white/60">
+        {entry.title}
+      </span>
       <button
-        onClick={() => onDelete(entry.id)}
-        className="shrink-0 opacity-0 transition group-hover:opacity-100 text-zinc-600 hover:text-red-400 text-xs"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(entry.id);
+        }}
+        className="shrink-0 text-[10px] text-transparent transition group-hover:text-white/20 hover:!text-red-400"
       >
-        ✕
+        ×
       </button>
     </div>
   );

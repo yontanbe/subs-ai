@@ -104,10 +104,18 @@ export default function EditorPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6">
-      <h1 className="mb-6 text-2xl font-bold text-white">Video Editor</h1>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-white/90">
+          Editor
+        </h1>
+        <p className="mt-1 text-[13px] text-white/30">
+          Upload, transcribe, translate, style, and export
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         {/* Main column */}
         <div className="space-y-6">
           <VideoUploader
@@ -146,7 +154,7 @@ export default function EditorPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-5">
           <SubtitleStyler style={style} onChange={setStyle} />
 
           <MusicPicker

@@ -9,12 +9,12 @@ interface Props {
 export default function VolumeControl({
   volume,
   onChange,
-  label = "Background Music Volume",
+  label = "Volume",
 }: Props) {
   return (
     <div className="flex items-center gap-3">
       <svg
-        className="h-4 w-4 shrink-0 text-zinc-400"
+        className="h-3.5 w-3.5 shrink-0 text-white/25"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -27,17 +27,19 @@ export default function VolumeControl({
         />
       </svg>
       <div className="flex-1">
-        <label className="mb-0.5 block text-xs text-zinc-500">{label}</label>
+        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-white/20">
+          {label}
+        </label>
         <input
           type="range"
           min={0}
           max={100}
           value={volume}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full accent-indigo-500"
+          className="w-full"
         />
       </div>
-      <span className="w-8 text-right text-xs font-mono text-zinc-400">
+      <span className="w-9 text-right font-mono text-[11px] text-[#3dd6c8]/60">
         {volume}%
       </span>
     </div>

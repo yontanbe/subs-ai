@@ -28,7 +28,7 @@ export default function VideoPreview({ videoUrl, segments, style }: Props) {
   }, [segments]);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl bg-black">
+    <div className="animate-fade-up relative w-full overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl shadow-black/50">
       <video
         ref={videoRef}
         src={videoUrl}
@@ -37,14 +37,14 @@ export default function VideoPreview({ videoUrl, segments, style }: Props) {
         className="w-full"
       />
       {currentText && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-12 flex justify-center px-4">
+        <div className="pointer-events-none absolute inset-x-0 bottom-14 flex justify-center px-4">
           <span
             dir="auto"
-            className="inline-block max-w-[90%] rounded px-3 py-1 text-center leading-snug"
+            className="inline-block max-w-[90%] rounded-lg bg-black/30 px-4 py-1.5 text-center leading-snug backdrop-blur-sm transition-all duration-200"
             style={{
               fontSize: `${Math.max(14, style.fontSize * 0.45)}px`,
               color: style.primaryColor,
-              textShadow: `0 0 4px ${style.outlineColor}, 1px 1px 2px ${style.outlineColor}, -1px -1px 2px ${style.outlineColor}`,
+              textShadow: `0 0 8px ${style.outlineColor}, 2px 2px 4px ${style.outlineColor}, -2px -2px 4px ${style.outlineColor}`,
               fontFamily: style.fontName,
             }}
           >

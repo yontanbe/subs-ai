@@ -6,9 +6,9 @@ import CalendarEntryCard from "./CalendarEntry";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PLATFORMS = [
-  { value: "youtube", label: "YouTube", color: "#EF4444" },
-  { value: "instagram", label: "Instagram", color: "#EC4899" },
-  { value: "tiktok", label: "TikTok", color: "#A1A1AA" },
+  { value: "youtube", label: "YouTube", icon: "▶", active: "border-red-500/40 bg-red-500/10 text-red-400" },
+  { value: "instagram", label: "Instagram", icon: "◻", active: "border-pink-500/40 bg-pink-500/10 text-pink-400" },
+  { value: "tiktok", label: "TikTok", icon: "♫", active: "border-white/20 bg-white/[0.08] text-white/70" },
 ] as const;
 
 export default function CalendarView() {
@@ -93,30 +93,32 @@ export default function CalendarView() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <button
           onClick={prevMonth}
-          className="rounded-lg px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.02] text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
         >
           ←
         </button>
-        <h2 className="text-lg font-semibold text-white">{monthLabel}</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-white/90">
+          {monthLabel}
+        </h2>
         <button
           onClick={nextMonth}
-          className="rounded-lg px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.02] text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
         >
           →
         </button>
       </div>
 
       {/* Day headers */}
-      <div className="grid grid-cols-7 gap-px">
+      <div className="grid grid-cols-7">
         {DAYS.map((d) => (
           <div
             key={d}
-            className="py-1 text-center text-[10px] font-semibold uppercase text-zinc-500"
+            className="py-2 text-center text-[10px] font-semibold uppercase tracking-widest text-white/20"
           >
             {d}
           </div>
@@ -124,7 +126,7 @@ export default function CalendarView() {
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-px rounded-xl border border-zinc-800 bg-zinc-800 overflow-hidden">
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.04]">
         {cells.map((day, i) => {
           const dayEntries = day ? getEntriesForDay(day) : [];
           const isToday =
@@ -135,8 +137,10 @@ export default function CalendarView() {
           return (
             <div
               key={i}
-              className={`min-h-[80px] sm:min-h-[100px] bg-zinc-900 p-1 ${
-                day ? "cursor-pointer hover:bg-zinc-800/80" : ""
+              className={`min-h-[80px] sm:min-h-[100px] bg-[#0a0a0f] p-1.5 transition-colors ${
+                day
+                  ? "cursor-pointer hover:bg-white/[0.03]"
+                  : "bg-[#08080c]"
               }`}
               onClick={() => {
                 if (!day) return;
@@ -148,10 +152,10 @@ export default function CalendarView() {
               {day && (
                 <>
                   <span
-                    className={`inline-block rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded-lg text-[11px] font-medium ${
                       isToday
-                        ? "bg-indigo-500 text-white"
-                        : "text-zinc-400"
+                        ? "bg-[#e09145] text-white font-semibold"
+                        : "text-white/35"
                     }`}
                   >
                     {day}
@@ -165,7 +169,7 @@ export default function CalendarView() {
                       />
                     ))}
                     {dayEntries.length > 2 && (
-                      <span className="block text-[9px] text-zinc-500">
+                      <span className="block text-[9px] text-white/20">
                         +{dayEntries.length - 2} more
                       </span>
                     )}
@@ -185,24 +189,32 @@ export default function CalendarView() {
           );
           setShowForm(true);
         }}
-        className="w-full rounded-xl border border-dashed border-zinc-700 py-3 text-sm text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200"
+        className="btn-secondary w-full rounded-2xl border-dashed py-3.5 text-[13px] font-medium text-white/30 transition hover:text-white/60"
       >
         + Add Content
       </button>
 
-      {/* Add form modal */}
+      {/* Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
-          <div className="w-full max-w-md rounded-t-2xl sm:rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowForm(false);
+          }}
+        >
+          <div className="animate-fade-up w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-white/[0.08] bg-[#0e0e12] p-6 space-y-5 shadow-2xl">
+            {/* Modal handle (mobile) */}
+            <div className="mx-auto h-1 w-10 rounded-full bg-white/10 sm:hidden" />
+
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-white">
+              <h3 className="text-[15px] font-semibold text-white/90">
                 Add Content
               </h3>
               <button
                 onClick={() => setShowForm(false)}
-                className="text-zinc-500 hover:text-zinc-300"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.04] text-white/30 transition hover:bg-white/[0.08] hover:text-white/60"
               >
-                ✕
+                ×
               </button>
             </div>
 
@@ -211,7 +223,8 @@ export default function CalendarView() {
               placeholder="Title"
               value={formTitle}
               onChange={(e) => setFormTitle(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none"
+              autoFocus
+              className="input-glass w-full rounded-xl px-4 py-3 text-[14px] text-white/80 placeholder:text-white/20"
             />
 
             <textarea
@@ -219,7 +232,7 @@ export default function CalendarView() {
               value={formDesc}
               onChange={(e) => setFormDesc(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none resize-none"
+              className="input-glass w-full resize-none rounded-xl px-4 py-3 text-[14px] text-white/80 placeholder:text-white/20"
             />
 
             <div className="flex gap-2">
@@ -227,12 +240,13 @@ export default function CalendarView() {
                 <button
                   key={p.value}
                   onClick={() => setFormPlatform(p.value)}
-                  className={`flex-1 rounded-lg border py-2 text-xs font-semibold transition ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-3 text-[12px] font-semibold transition ${
                     formPlatform === p.value
-                      ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
-                      : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                      ? p.active
+                      : "border-white/[0.06] text-white/25 hover:border-white/[0.12]"
                   }`}
                 >
+                  <span className="text-[10px]">{p.icon}</span>
                   {p.label}
                 </button>
               ))}
@@ -242,13 +256,13 @@ export default function CalendarView() {
               type="date"
               value={formDate}
               onChange={(e) => setFormDate(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500 focus:outline-none"
+              className="input-glass w-full rounded-xl px-4 py-3 text-[14px] text-white/80"
             />
 
             <button
               onClick={handleAdd}
               disabled={!formTitle || !formDate}
-              className="w-full rounded-lg bg-indigo-500 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
+              className="btn-glow w-full rounded-xl py-3 text-[14px] font-semibold text-white disabled:opacity-40"
             >
               Add to Calendar
             </button>

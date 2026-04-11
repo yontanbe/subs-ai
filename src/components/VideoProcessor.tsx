@@ -22,6 +22,7 @@ export default function VideoProcessor({
   musicVolume,
 }: Props) {
   const [progress, setProgress] = useState("");
+  const [progressPct, setProgressPct] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
 
@@ -29,15 +30,19 @@ export default function VideoProcessor({
     if (!videoFile || segments.length === 0) return;
     setProcessing(true);
     setProgress("Loading FFmpeg…");
+    setProgressPct(5);
 
     try {
       const ffmpeg = await getFFmpeg();
 
       ffmpeg.on("progress", ({ progress: p }) => {
-        setProgress(`Processing: ${Math.round(p * 100)}%`);
+        const pct = Math.min(95, Math.round(p * 100));
+        setProgressPct(pct);
+        setProgress(`Burning subtitles… ${pct}%`);
       });
 
       setProgress("Preparing files…");
+      setProgressPct(10);
       const videoData = await fetchFile(videoFile);
       await ffmpeg.writeFile("input.mp4", videoData);
 
@@ -49,6 +54,7 @@ export default function VideoProcessor({
 
       if (musicUrl) {
         setProgress("Downloading music…");
+        setProgressPct(20);
         const musicData = await fetchFile(musicUrl);
         await ffmpeg.writeFile("music.mp3", musicData);
         cmd.push("-i", "music.mp3");
@@ -77,6 +83,7 @@ export default function VideoProcessor({
       );
 
       setProgress("Burning subtitles…");
+      setProgressPct(30);
       const run = ffmpeg["exec"].bind(ffmpeg);
       await run(cmd);
 
@@ -84,7 +91,8 @@ export default function VideoProcessor({
       const blob = new Blob([data.buffer as ArrayBuffer], { type: "video/mp4" });
       const url = URL.createObjectURL(blob);
       setOutputUrl(url);
-      setProgress("Done!");
+      setProgress("Complete");
+      setProgressPct(100);
     } catch (err) {
       setProgress(
         `Error: ${err instanceof Error ? err.message : "Processing failed"}`
@@ -95,28 +103,44 @@ export default function VideoProcessor({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="animate-fade-up space-y-4">
+      {/* Export button with progress */}
       <button
         onClick={handleProcess}
         disabled={processing || !videoFile || segments.length === 0}
-        className="w-full rounded-xl bg-indigo-500 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
+        className="btn-glow group relative w-full overflow-hidden rounded-2xl py-4 text-[14px] font-semibold text-white disabled:opacity-40"
       >
-        {processing ? progress : "Burn Subtitles & Export"}
+        {processing && (
+          <div
+            className="absolute inset-y-0 left-0 bg-white/10 transition-all duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+        )}
+        <span className="relative flex items-center justify-center gap-2">
+          {processing && <span className="spinner" />}
+          {processing ? progress : "Burn Subtitles & Export"}
+        </span>
       </button>
 
       {outputUrl && (
-        <div className="space-y-3">
-          <video
-            src={outputUrl}
-            controls
-            playsInline
-            className="w-full rounded-xl"
-          />
+        <div className="animate-fade-up space-y-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="overflow-hidden rounded-xl border border-white/[0.06]">
+            <video
+              src={outputUrl}
+              controls
+              playsInline
+              className="w-full"
+            />
+          </div>
           <a
             href={outputUrl}
             download="subtitled-video.mp4"
-            className="flex h-10 items-center justify-center rounded-lg border border-emerald-600 text-sm font-semibold text-emerald-400 transition hover:bg-emerald-600/10"
+            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#3dd6c8]/30 bg-[#3dd6c8]/5 text-[13px] font-semibold text-[#3dd6c8] transition hover:bg-[#3dd6c8]/10"
           >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
+              <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+            </svg>
             Download Video
           </a>
         </div>

@@ -41,7 +41,7 @@ export default function VideoUploader({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="animate-fade-up space-y-4">
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -50,32 +50,41 @@ export default function VideoUploader({
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition ${
+        className={`group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-10 transition-all duration-300 ${
           dragOver
-            ? "border-indigo-400 bg-indigo-500/10"
-            : "border-zinc-700 hover:border-zinc-500"
+            ? "border-[#e09145] bg-[#e09145]/5 scale-[1.01]"
+            : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]"
         }`}
       >
-        <svg
-          className="mb-3 h-10 w-10 text-zinc-500"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-          />
-        </svg>
-        <p className="text-sm text-zinc-400">
-          <span className="font-medium text-indigo-400">Tap to upload</span> or
-          drag a video here
-        </p>
-        <p className="mt-1 text-xs text-zinc-500">
-          MP4, MOV, WebM — under 1 minute
-        </p>
+        <div
+          className={`absolute inset-0 bg-gradient-to-b from-[#e09145]/5 to-transparent opacity-0 transition-opacity duration-300 ${
+            dragOver ? "opacity-100" : "group-hover:opacity-60"
+          }`}
+        />
+        <div className="relative flex flex-col items-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-transform duration-300 group-hover:scale-105">
+            <svg
+              className="h-6 w-6 text-white/40 transition-colors group-hover:text-[#e09145]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+              />
+            </svg>
+          </div>
+          <p className="text-[13px] text-white/50">
+            <span className="font-medium text-[#e09145]">Tap to upload</span>{" "}
+            or drag a video here
+          </p>
+          <p className="mt-1.5 text-[11px] text-white/25">
+            MP4, MOV, WebM — under 1 minute
+          </p>
+        </div>
         <input
           ref={inputRef}
           type="file"
@@ -90,36 +99,41 @@ export default function VideoUploader({
       </div>
 
       {preview && (
-        <div className="space-y-4">
-          <video
-            src={preview}
-            controls
-            className="w-full rounded-xl"
-            playsInline
-          />
-          <p className="truncate text-sm text-zinc-400">{fileName}</p>
+        <div className="animate-fade-up space-y-4">
+          <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-black">
+            <video
+              src={preview}
+              controls
+              className="w-full"
+              playsInline
+            />
+          </div>
+          <p className="truncate font-mono text-[11px] text-white/30">
+            {fileName}
+          </p>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-zinc-400">
-                Transcription Engine
+              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/30">
+                Engine
               </label>
               <select
                 value={engine}
                 onChange={(e) =>
                   setEngine(e.target.value as TranscriptionEngine)
                 }
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none"
+                className="input-glass w-full rounded-xl px-3 py-2.5 text-[13px] text-white/80"
               >
-                <option value="groq">Groq Whisper (Free)</option>
-                <option value="openai">OpenAI Whisper (Paid)</option>
+                <option value="groq">Groq Whisper — Free</option>
+                <option value="openai">OpenAI Whisper — Paid</option>
               </select>
             </div>
             <button
               onClick={() => onTranscribe(engine)}
               disabled={isProcessing}
-              className="h-10 rounded-lg bg-indigo-500 px-6 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
+              className="btn-glow flex h-[42px] items-center justify-center gap-2 rounded-xl px-6 text-[13px] font-semibold text-white disabled:opacity-50"
             >
+              {isProcessing && <span className="spinner" />}
               {isProcessing ? "Transcribing…" : "Transcribe"}
             </button>
           </div>
