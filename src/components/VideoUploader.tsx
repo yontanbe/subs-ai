@@ -7,12 +7,14 @@ interface Props {
   onVideoSelected: (file: File) => void;
   onTranscribe: (engine: TranscriptionEngine) => void;
   isProcessing: boolean;
+  statusMessage?: string;
 }
 
 export default function VideoUploader({
   onVideoSelected,
   onTranscribe,
   isProcessing,
+  statusMessage,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -135,7 +137,7 @@ export default function VideoUploader({
               className="btn-glow flex h-[42px] items-center justify-center gap-2 rounded-xl px-6 text-[13px] font-semibold text-white disabled:opacity-50"
             >
               {isProcessing && <span className="spinner" />}
-              {isProcessing ? "Transcribing…" : "Transcribe"}
+              {isProcessing ? (statusMessage || "Transcribing…") : "Transcribe"}
             </button>
           </div>
         </div>
