@@ -54,9 +54,10 @@ export async function POST(req: NextRequest) {
         : await transcribeGroq(file);
     return NextResponse.json({ segments });
   } catch (err) {
-    console.error("Transcription error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Transcription error:", message);
     return NextResponse.json(
-      { error: "Transcription failed. Please try again." },
+      { error: message },
       { status: 500 }
     );
   }
@@ -90,7 +91,17 @@ async function transcribeGroq(file: File): Promise<SubtitleSegment[]> {
     }
   );
 
-  if (!res.ok) throw new Error("Groq transcription failed");
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("Groq error:", res.status, errBody);
+    try {
+      const parsed = JSON.parse(errBody);
+      throw new Error(parsed?.error?.message || "Groq transcription failed");
+    } catch (e) {
+      if (e instanceof SyntaxError) throw new Error("Groq transcription failed: " + res.status);
+      throw e;
+    }
+  }
   return mapSegments(await res.json());
 }
 
@@ -112,6 +123,16 @@ async function transcribeOpenAI(file: File): Promise<SubtitleSegment[]> {
     }
   );
 
-  if (!res.ok) throw new Error("OpenAI transcription failed");
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("OpenAI error:", res.status, errBody);
+    try {
+      const parsed = JSON.parse(errBody);
+      throw new Error(parsed?.error?.message || "OpenAI transcription failed");
+    } catch (e) {
+      if (e instanceof SyntaxError) throw new Error("OpenAI transcription failed: " + res.status);
+      throw e;
+    }
+  }
   return mapSegments(await res.json());
 }
