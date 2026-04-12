@@ -214,14 +214,28 @@ export async function POST(req: NextRequest) {
       }
       rawKeywords = await extractWithOpenAI(prompt, apiKey);
     } else {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (geminiKey) {
+        try {
+          rawKeywords = await extractWithGemini(prompt, geminiKey);
+        } catch {
+          // Fallback to OpenAI if Gemini fails (quota, etc.)
+          const openaiKey = process.env.OPENAI_API_KEY;
+          if (openaiKey) {
+            rawKeywords = await extractWithOpenAI(prompt, openaiKey);
+          } else {
+            return NextResponse.json(
+              { error: "Gemini quota exceeded and no OpenAI fallback configured" },
+              { status: 503 },
+            );
+          }
+        }
+      } else {
         return NextResponse.json(
           { error: "GEMINI_API_KEY not configured" },
           { status: 500 },
         );
       }
-      rawKeywords = await extractWithGemini(prompt, apiKey);
     }
 
     const keywords = postProcessKeywords(rawKeywords);

@@ -192,14 +192,27 @@ export async function POST(req: NextRequest) {
       }
       translated = await translateWithOpenAI(prompt, apiKey);
     } else {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (geminiKey) {
+        try {
+          translated = await translateWithGemini(prompt, geminiKey);
+        } catch {
+          const openaiKey = process.env.OPENAI_API_KEY;
+          if (openaiKey) {
+            translated = await translateWithOpenAI(prompt, openaiKey);
+          } else {
+            return NextResponse.json(
+              { error: "Gemini quota exceeded and no OpenAI fallback" },
+              { status: 503 },
+            );
+          }
+        }
+      } else {
         return NextResponse.json(
           { error: "GEMINI_API_KEY not configured" },
           { status: 500 },
         );
       }
-      translated = await translateWithGemini(prompt, apiKey);
     }
 
     return NextResponse.json({ segments: translated });
