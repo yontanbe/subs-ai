@@ -302,19 +302,32 @@ export default function VideoProcessor({
                 <button
                   onClick={async () => {
                     try {
-                      // Fetch blob from URL for reliable download
                       const response = await fetch(outputUrl);
                       const blob = await response.blob();
+                      const fileName = `reelmix-${Date.now()}.mp4`;
+                      const file = new File([blob], fileName, { type: "video/mp4" });
+
+                      // iOS/mobile: use native Share sheet (works with Photos, Files, etc.)
+                      if (
+                        typeof navigator.canShare === "function" &&
+                        navigator.canShare({ files: [file] })
+                      ) {
+                        await navigator.share({ files: [file], title: "ReelMix video" });
+                        return;
+                      }
+
+                      // Desktop: traditional download
                       const downloadUrl = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = downloadUrl;
-                      a.download = `reelmix-${Date.now()}.mp4`;
+                      a.download = fileName;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);
                       setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-                    } catch {
-                      // Fallback for mobile: open in new tab
+                    } catch (err) {
+                      // User cancelled share, or other error — open in new tab as fallback
+                      if (err instanceof Error && err.name === "AbortError") return;
                       window.open(outputUrl, "_blank");
                     }
                   }}
@@ -324,11 +337,8 @@ export default function VideoProcessor({
                     <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
                     <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
                   </svg>
-                  Download Video
+                  Save Video
                 </button>
-                <p className="text-center text-[11px] text-white/30">
-                  On mobile: tap and hold the video above, then select &quot;Save to Photos&quot;
-                </p>
               </div>
             )}
           </div>
