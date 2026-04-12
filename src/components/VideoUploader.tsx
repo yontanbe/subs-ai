@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import type { TranscriptionEngine } from "@/types";
+
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
 
 interface Props {
   onVideoSelected: (file: File) => void;
@@ -22,8 +24,16 @@ export default function VideoUploader({
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [fileSize, setFileSize] = useState<string>("");
+  const [sizeWarning, setSizeWarning] = useState<string>("");
   const [engine, setEngine] = useState<TranscriptionEngine>("groq");
   const [dragOver, setDragOver] = useState(false);
+
+  // Revoke object URL on unmount or when preview changes
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
 
   const formatSize = (bytes: number) => {
     if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " GB";
@@ -34,12 +44,25 @@ export default function VideoUploader({
   const handleFile = useCallback(
     (file: File) => {
       if (!file.type.startsWith("video/")) return;
+
+      // Revoke previous preview URL
+      if (preview) URL.revokeObjectURL(preview);
+
+      // File size validation
+      if (file.size > MAX_FILE_SIZE) {
+        setSizeWarning(`File is ${formatSize(file.size)} — max is 500 MB. Try trimming the video first.`);
+        return;
+      }
+      setSizeWarning(file.size > 100 * 1024 * 1024
+        ? `Large file (${formatSize(file.size)}) — upload may take a moment`
+        : "");
+
       setFileName(file.name);
       setFileSize(formatSize(file.size));
       setPreview(URL.createObjectURL(file));
       onVideoSelected(file);
     },
-    [onVideoSelected]
+    [onVideoSelected, preview]
   );
 
   const onDrop = useCallback(
@@ -119,6 +142,12 @@ export default function VideoUploader({
         />
       </div>
 
+      {sizeWarning && !preview && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-[13px] text-red-400">
+          {sizeWarning}
+        </div>
+      )}
+
       {preview && (
         <div className="animate-fade-up space-y-4">
           {/* Video preview — proper aspect ratio */}
@@ -138,12 +167,16 @@ export default function VideoUploader({
             <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-white/40">{fileSize}</span>
           </div>
 
+          {sizeWarning && (
+            <p className="text-center text-[12px] text-amber-400/70">{sizeWarning}</p>
+          )}
+
           {/* Processing steps */}
           {isProcessing && (
             <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
               <div className="flex items-center gap-3">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${step >= 1 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
-                  {step > 1 ? "✓" : "1"}
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${step >= 1 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
+                  {step > 1 ? "\u2713" : "1"}
                 </div>
                 <div className="flex-1">
                   <p className={`text-[13px] font-medium ${step === 1 ? "text-white/90" : step > 1 ? "text-white/40" : "text-white/25"}`}>
@@ -164,8 +197,8 @@ export default function VideoUploader({
               </div>
 
               <div className="flex items-center gap-3">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${step >= 2 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
-                  {step > 2 ? "✓" : "2"}
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${step >= 2 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
+                  {step > 2 ? "\u2713" : "2"}
                 </div>
                 <div className="flex-1">
                   <p className={`text-[13px] font-medium ${step === 2 ? "text-white/90" : step > 2 ? "text-white/40" : "text-white/25"}`}>
@@ -180,8 +213,8 @@ export default function VideoUploader({
               </div>
 
               <div className="flex items-center gap-3">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${step >= 3 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
-                  {step > 3 ? "✓" : "3"}
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${step >= 3 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
+                  {step > 3 ? "\u2713" : "3"}
                 </div>
                 <div className="flex-1">
                   <p className={`text-[13px] font-medium ${step === 3 ? "text-white/90" : step > 3 ? "text-white/40" : "text-white/25"}`}>

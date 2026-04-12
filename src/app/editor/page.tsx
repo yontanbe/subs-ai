@@ -146,11 +146,13 @@ export default function EditorPage() {
 
     const probe = document.createElement("video");
     probe.preload = "metadata";
+    const probeUrl = URL.createObjectURL(file);
     probe.onloadedmetadata = () => {
       setVideoDuration(probe.duration);
-      URL.revokeObjectURL(probe.src);
+      URL.revokeObjectURL(probeUrl);
     };
-    probe.src = URL.createObjectURL(file);
+    probe.onerror = () => URL.revokeObjectURL(probeUrl);
+    probe.src = probeUrl;
   };
 
   const runAutoOverlayPipeline = async (segs: SubtitleSegment[]) => {
@@ -280,14 +282,22 @@ export default function EditorPage() {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", apiBase + "/transcribe");
 
+        let uploadDone = false;
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
             const pct = Math.round((e.loaded / e.total) * 100);
             setUploadProgress(pct);
-            if (pct >= 100) {
-              setTranscribeStatus("Extracting audio…");
-            }
           }
+        };
+
+        xhr.upload.onload = () => {
+          uploadDone = true;
+          setUploadProgress(100);
+          setTranscribeStatus("Extracting audio…");
+          // After a short delay, move to transcribing step
+          setTimeout(() => {
+            if (uploadDone) setTranscribeStatus("Transcribing with AI…");
+          }, 3000);
         };
 
         xhr.onload = () => {
@@ -298,24 +308,21 @@ export default function EditorPage() {
               reject(new Error("Invalid response from server"));
             }
           } else {
+            let msg = "Transcription failed";
             try {
               const err = JSON.parse(xhr.responseText);
-              reject(new Error(err.error || "Transcription failed"));
-            } catch {
-              reject(new Error("Server error: " + xhr.status));
-            }
+              msg = err.error || msg;
+            } catch { /* non-JSON error */ }
+            reject(new Error(msg));
           }
         };
 
-        xhr.onerror = () => reject(new Error("Network error — check your connection"));
-        xhr.ontimeout = () => reject(new Error("Upload timed out — try a smaller file"));
+        xhr.onerror = () => reject(new Error("Network error — check your connection and try again"));
+        xhr.ontimeout = () => reject(new Error("Request timed out — try a shorter video"));
         xhr.timeout = 300000; // 5 min timeout
 
-        // After upload completes, server processes — update status
         xhr.onreadystatechange = () => {
-          if (xhr.readyState === 3) {
-            setTranscribeStatus("Transcribing with AI…");
-          }
+          // No-op: progress managed by upload.onload + setTimeout
         };
 
         xhr.send(formData);

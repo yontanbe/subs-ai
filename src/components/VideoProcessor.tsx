@@ -144,7 +144,8 @@ export default function VideoProcessor({
       const encoder = new TextEncoder();
       await ffmpeg.writeFile("subs.ass", encoder.encode(assContent));
 
-      const hasSecondary = Boolean(secondaryVideoFile);
+      const combineFilter = buildCombineFilter(layoutConfig);
+      const hasSecondary = Boolean(secondaryVideoFile) && combineFilter !== null;
       const hasOverlays = overlays.length > 0;
 
       if (hasSecondary && secondaryVideoFile) {
@@ -209,9 +210,7 @@ export default function VideoProcessor({
       } else {
         const videoParts: string[] = [];
 
-        const combineFilter = hasSecondary
-          ? buildCombineFilter(layoutConfig)
-          : null;
+        // combineFilter already computed above — reuse it
         if (combineFilter) {
           videoParts.push(combineFilter);
         }
@@ -262,8 +261,8 @@ export default function VideoProcessor({
 
       setProgress("Burning subtitles…");
       setProgressPct(30);
-      const run = ffmpeg["exec"].bind(ffmpeg);
-      await run(cmd);
+      // ffmpeg.wasm exec - runs ffmpeg command in WebAssembly (not shell exec)
+      await ffmpeg.exec(cmd);
 
       const data = (await ffmpeg.readFile("output.mp4")) as unknown as Uint8Array;
       const blob = new Blob([new Uint8Array(data)], { type: "video/mp4" });

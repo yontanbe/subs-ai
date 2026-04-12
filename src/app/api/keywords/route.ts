@@ -113,7 +113,7 @@ async function fetchNanoBanana(prompt: string): Promise<MediaItem[]> {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,12 +122,12 @@ async function fetchNanoBanana(prompt: string): Promise<MediaItem[]> {
             {
               parts: [
                 {
-                  text: `Generate a simple, clean illustration for: "${prompt.slice(0, 200)}". Make it suitable as a video overlay.`,
+                  text: `Generate a simple, clean illustration for: "${prompt.slice(0, 200)}". Make it suitable as a video overlay on a dark background. Use bold colors, minimal detail.`,
                 },
               ],
             },
           ],
-          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
         }),
       }
     );
