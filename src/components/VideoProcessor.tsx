@@ -1,13 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { fetchFile } from "@ffmpeg/util";
-import { getFFmpeg } from "@/lib/ffmpeg";
-import { generateASS } from "@/lib/srt";
 import type {
   ImageOverlay,
   LayoutConfig,
-  PipCorner,
   SubtitleSegment,
   SubtitleStyle,
 } from "@/types";
@@ -24,217 +20,89 @@ interface Props {
   onExportComplete?: () => void;
 }
 
-function pipOverlayCoords(corner: PipCorner): string {
-  switch (corner) {
-    case "top-left":
-      return "10:10";
-    case "top-right":
-      return "W-w-10:10";
-    case "bottom-left":
-      return "10:H-h-10";
-    case "bottom-right":
-    default:
-      return "W-w-10:H-h-10";
-  }
-}
-
-function imageOverlayCoords(position: ImageOverlay["position"]): string {
-  switch (position) {
-    case "top-left":
-      return "10:10";
-    case "top-right":
-      return "main_w-overlay_w-10:10";
-    case "bottom-left":
-      return "10:main_h-overlay_h-10";
-    case "bottom-right":
-      return "main_w-overlay_w-10:main_h-overlay_h-10";
-    case "center":
-    default:
-      return "(main_w-overlay_w)/2:(main_h-overlay_h)/2";
-  }
-}
-
-function buildCombineFilter(layout: LayoutConfig | undefined): string | null {
-  const mode = layout?.layout ?? "main-only";
-  if (mode === "main-only") return null;
-
-  const defaultRatio = mode === "pip" ? 0.3 : 0.5;
-  const r = Math.min(0.7, Math.max(0.3, layout?.ratio ?? defaultRatio));
-  const pipRatio = Math.min(0.7, Math.max(0.15, layout?.ratio ?? 0.3));
-  const corner = layout?.pipCorner ?? "bottom-right";
-
-  if (mode === "blur-bg") {
-    return [
-      "[0:v]scale=1280:720:force_original_aspect_ratio=decrease[main]",
-      "[0:v]scale=1280:720,boxblur=20:20[bg]",
-      "[bg][main]overlay=(W-w)/2:(H-h)/2[vcomb]",
-    ].join(";");
-  }
-  if (mode === "side-by-side") {
-    return [
-      `[0:v]scale=w=trunc(1280*${r}):h=720:force_original_aspect_ratio=decrease,setsar=1[v0]`,
-      `[1:v]scale=w=trunc(1280*${1 - r}):h=720:force_original_aspect_ratio=decrease,setsar=1[v1]`,
-      `[v0][v1]hstack=inputs=2[vcomb]`,
-    ].join(";");
-  }
-  if (mode === "split-border") {
-    return [
-      `[0:v]scale=w=trunc(1280*${r}-2):h=720:force_original_aspect_ratio=decrease,setsar=1[v0]`,
-      `[1:v]scale=w=trunc(1280*${1 - r}-2):h=720:force_original_aspect_ratio=decrease,setsar=1[v1]`,
-      `[v0][v1]hstack=inputs=2[vcomb]`,
-    ].join(";");
-  }
-  if (mode === "top-bottom") {
-    return [
-      `[0:v]scale=w=1280:h=trunc(720*${r}):force_original_aspect_ratio=decrease,setsar=1[v0]`,
-      `[1:v]scale=w=1280:h=trunc(720*${1 - r}):force_original_aspect_ratio=decrease,setsar=1[v1]`,
-      `[v0][v1]vstack=inputs=2[vcomb]`,
-    ].join(";");
-  }
-  const xy = pipOverlayCoords(corner);
-  return `[0:v][1:v]scale2ref=w=iw*${pipRatio}:h=-2[main][pip];[main][pip]overlay=${xy}[vcomb]`;
-}
+const API_BASE =
+  process.env.NEXT_PUBLIC_TRANSCRIBE_API ||
+  "https://reelmix-api-production.up.railway.app";
 
 export default function VideoProcessor({
   videoFile,
   segments,
   style,
-  musicUrl,
-  musicVolume,
   overlays = [],
-  secondaryVideoFile = null,
-  layoutConfig,
   onExportComplete,
 }: Props) {
   const [progress, setProgress] = useState("");
   const [progressPct, setProgressPct] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleProcess = async () => {
     if (!videoFile || segments.length === 0) return;
     setProcessing(true);
     setOutputUrl(null);
-    setProgress("Loading FFmpeg…");
-    setProgressPct(5);
+    setError(null);
+    setProgress("Uploading video…");
+    setProgressPct(0);
 
     try {
-      const ffmpeg = await getFFmpeg();
+      const formData = new FormData();
+      formData.append("file", videoFile);
+      formData.append("segments", JSON.stringify(segments));
+      formData.append("style", JSON.stringify(style));
+      formData.append("overlays", JSON.stringify(overlays));
 
-      ffmpeg.on("progress", ({ progress: p }) => {
-        const pct = Math.min(95, Math.round(p * 100));
-        setProgressPct(pct);
-        setProgress(`Processing video… ${pct}%`);
+      // Upload with progress
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", API_BASE + "/export");
+        xhr.responseType = "blob";
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 50);
+            setProgressPct(pct);
+          }
+        };
+
+        xhr.upload.onload = () => {
+          setProgressPct(50);
+          setProgress("Processing video on server…");
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setProgressPct(100);
+            setProgress("Complete!");
+            resolve(xhr.response);
+          } else {
+            // Try to read error from blob
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const err = JSON.parse(reader.result as string);
+                reject(new Error(err.error || "Export failed"));
+              } catch {
+                reject(new Error("Server error: " + xhr.status));
+              }
+            };
+            reader.onerror = () => reject(new Error("Server error: " + xhr.status));
+            reader.readAsText(xhr.response);
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error — check your connection"));
+        xhr.ontimeout = () => reject(new Error("Export timed out — try a shorter video"));
+        xhr.timeout = 600000; // 10 min
+
+        xhr.send(formData);
       });
 
-      setProgress("Reading video file…");
-      setProgressPct(10);
-      const videoData = await fetchFile(videoFile);
-      await ffmpeg.writeFile("input.mp4", videoData);
-
-      const assContent = generateASS(segments, style);
-      await ffmpeg.writeFile("subs.ass", new TextEncoder().encode(assContent));
-
-      const combineFilter = buildCombineFilter(layoutConfig);
-      const hasSecondary = Boolean(secondaryVideoFile) && combineFilter !== null;
-      const hasOverlays = overlays.length > 0;
-
-      if (hasSecondary && secondaryVideoFile) {
-        setProgress("Loading secondary video…");
-        setProgressPct(15);
-        await ffmpeg.writeFile("secondary.mp4", await fetchFile(secondaryVideoFile));
-      }
-
-      for (let i = 0; i < overlays.length; i++) {
-        setProgress(`Loading overlay ${i + 1}/${overlays.length}…`);
-        setProgressPct(15 + Math.round((i / Math.max(1, overlays.length)) * 10));
-        const imgData = await fetchFile(overlays[i].imageUrl);
-        await ffmpeg.writeFile(`overlay_${i}.png`, imgData);
-      }
-
-      const cmd: string[] = ["-i", "input.mp4"];
-      let nextInput = 1;
-      let musicInputIdx: number | null = null;
-
-      if (hasSecondary) {
-        cmd.push("-i", "secondary.mp4");
-        nextInput += 1;
-      }
-      if (musicUrl) {
-        setProgress("Downloading music…");
-        setProgressPct(20);
-        await ffmpeg.writeFile("music.mp3", await fetchFile(musicUrl));
-        musicInputIdx = nextInput;
-        cmd.push("-i", "music.mp3");
-        nextInput += 1;
-      }
-
-      const overlayInputIndices: number[] = [];
-      for (let i = 0; i < overlays.length; i++) {
-        cmd.push("-loop", "1", "-i", `overlay_${i}.png`);
-        overlayInputIndices.push(nextInput);
-        nextInput += 1;
-      }
-
-      const complexVideo = hasSecondary || hasOverlays;
-
-      if (!complexVideo) {
-        if (!musicUrl) {
-          cmd.push("-vf", "ass=subs.ass", "-c:a", "copy");
-        } else if (musicInputIdx !== null) {
-          const vol = (musicVolume / 100).toFixed(2);
-          cmd.push(
-            "-filter_complex",
-            `[${musicInputIdx}:a]volume=${vol}[bg];[0:a][bg]amix=inputs=2:duration=first[outa]`,
-            "-map", "0:v", "-map", "[outa]", "-vf", "ass=subs.ass"
-          );
-        }
-      } else {
-        const videoParts: string[] = [];
-        if (combineFilter) videoParts.push(combineFilter);
-        let vLabel = combineFilter ? "[vcomb]" : "[0:v]";
-
-        for (let i = 0; i < overlays.length; i++) {
-          const o = overlays[i];
-          const oIdx = overlayInputIndices[i];
-          const scale = Math.min(1, Math.max(0.05, o.scale));
-          const start = o.startTime.toFixed(3);
-          const end = o.endTime.toFixed(3);
-          const pos = imageOverlayCoords(o.position);
-          const nextLabel = `[vov${i}]`;
-          videoParts.push(`${vLabel}[${oIdx}:v]scale2ref=w=iw*${scale}:h=-2[vb${i}][im${i}]`);
-          videoParts.push(`[vb${i}][im${i}]overlay=${pos}:enable=between(t\\,${start}\\,${end})${nextLabel}`);
-          vLabel = nextLabel;
-        }
-
-        videoParts.push(`${vLabel}ass=subs.ass[outv]`);
-        let fc = videoParts.join(";");
-
-        if (musicUrl && musicInputIdx !== null) {
-          const vol = (musicVolume / 100).toFixed(2);
-          fc += `;[${musicInputIdx}:a]volume=${vol}[bg];[0:a][bg]amix=inputs=2:duration=first[outa]`;
-          cmd.push("-filter_complex", fc, "-map", "[outv]", "-map", "[outa]");
-        } else {
-          cmd.push("-filter_complex", fc, "-map", "[outv]", "-map", "0:a");
-        }
-      }
-
-      cmd.push("-c:v", "libx264", "-preset", "ultrafast", "-shortest", "output.mp4");
-
-      setProgress("Burning subtitles…");
-      setProgressPct(30);
-      // ffmpeg.wasm exec — runs in WebAssembly, not shell
-      await ffmpeg.exec(cmd);
-
-      const data = (await ffmpeg.readFile("output.mp4")) as unknown as Uint8Array;
-      const blob = new Blob([new Uint8Array(data)], { type: "video/mp4" });
       const url = URL.createObjectURL(blob);
       setOutputUrl(url);
-      setProgress("Export complete!");
-      setProgressPct(100);
       onExportComplete?.();
     } catch (err) {
-      setProgress(`Error: ${err instanceof Error ? err.message : "Processing failed"}`);
+      setError(err instanceof Error ? err.message : "Processing failed");
     } finally {
       setProcessing(false);
     }
@@ -262,35 +130,49 @@ export default function VideoProcessor({
       </div>
 
       {/* Export modal popup */}
-      {(processing || outputUrl) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0a0a0f] p-6 shadow-2xl space-y-5">
+      {(processing || outputUrl || error) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/[0.08] bg-[#0a0a0f] p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-[16px] font-bold text-white/90">
-                {outputUrl ? "Export Ready" : "Exporting Video"}
+              <h3 className="text-[18px] font-bold text-white/95">
+                {error ? "Export Failed" : outputUrl ? "Video Ready!" : "Exporting Video"}
               </h3>
-              {outputUrl && (
+              {(outputUrl || error) && (
                 <button
-                  onClick={() => setOutputUrl(null)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.06] text-white/40 transition hover:bg-white/[0.12] hover:text-white/80"
+                  onClick={() => {
+                    setOutputUrl(null);
+                    setError(null);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-white/60 transition hover:bg-white/[0.12] hover:text-white"
                 >
                   &#x2715;
                 </button>
               )}
             </div>
 
+            {error && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-[13px] text-red-400">
+                {error}
+              </div>
+            )}
+
             {processing && (
-              <div className="space-y-3">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="space-y-4">
+                <div className="text-center">
+                  <div className="text-5xl font-bold text-[#e09145]">
+                    {progressPct}<span className="text-2xl">%</span>
+                  </div>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-white/[0.06]">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-[#e09145] to-[#f0b678] transition-all duration-500"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-[12px]">
-                  <span className="text-white/50">{progress}</span>
-                  <span className="font-mono text-white/30">{progressPct}%</span>
-                </div>
+                <p className="text-center text-[13px] text-white/60">{progress}</p>
+                <p className="text-center text-[11px] text-white/30">
+                  Keep this tab open. Processing happens on our server so it works even on iPhone.
+                </p>
               </div>
             )}
 
@@ -307,7 +189,7 @@ export default function VideoProcessor({
                       const fileName = `reelmix-${Date.now()}.mp4`;
                       const file = new File([blob], fileName, { type: "video/mp4" });
 
-                      // iOS/mobile: use native Share sheet (works with Photos, Files, etc.)
+                      // iOS/mobile: use native Share sheet
                       if (
                         typeof navigator.canShare === "function" &&
                         navigator.canShare({ files: [file] })
@@ -326,7 +208,6 @@ export default function VideoProcessor({
                       document.body.removeChild(a);
                       setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
                     } catch (err) {
-                      // User cancelled share, or other error — open in new tab as fallback
                       if (err instanceof Error && err.name === "AbortError") return;
                       window.open(outputUrl, "_blank");
                     }
@@ -337,7 +218,7 @@ export default function VideoProcessor({
                     <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
                     <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
                   </svg>
-                  Save Video
+                  Save to Device
                 </button>
               </div>
             )}
