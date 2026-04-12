@@ -198,15 +198,16 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
         })}
 
         {currentText && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-14 z-[6] flex justify-center px-4">
+          <div className="pointer-events-none absolute inset-x-0 bottom-10 z-[6] flex justify-center px-3 sm:bottom-14 sm:px-4">
             <span
               dir="auto"
-              className="inline-block max-w-[90%] rounded-lg bg-black/30 px-4 py-1.5 text-center leading-snug backdrop-blur-sm transition-all duration-200"
+              className="inline-block max-w-[95%] rounded-md px-4 py-2 text-center font-bold leading-snug transition-all duration-200 sm:rounded-lg sm:px-5 sm:py-2.5"
               style={{
-                fontSize: `${Math.max(14, style.fontSize * 0.45)}px`,
+                fontSize: `clamp(16px, ${style.fontSize * 0.5}px, 32px)`,
                 color: style.primaryColor,
-                textShadow: `0 0 8px ${style.outlineColor}, 2px 2px 4px ${style.outlineColor}, -2px -2px 4px ${style.outlineColor}`,
+                backgroundColor: "rgba(0, 0, 0, 0.85)",
                 fontFamily: style.fontName,
+                letterSpacing: "0.02em",
               }}
             >
               {currentText}

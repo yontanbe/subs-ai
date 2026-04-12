@@ -103,14 +103,13 @@ export default function VideoUploader({
             or drag a video here
           </p>
           <p className="mt-1.5 text-[11px] text-white/25">
-            MP4, MOV, WebM — any size from your phone
+            MP4, MOV, WebM — works with phone videos too
           </p>
         </div>
         <input
           ref={inputRef}
           type="file"
-          accept="video/*"
-          capture="environment"
+          accept="video/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];

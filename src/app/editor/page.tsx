@@ -31,7 +31,7 @@ import type {
 } from "@/types";
 
 const DEFAULT_STYLE: SubtitleStyle = {
-  fontSize: 28,
+  fontSize: 52,
   primaryColor: "#FFFFFF",
   outlineColor: "#000000",
   fontName: "Noto Sans Hebrew",
@@ -258,7 +258,7 @@ export default function EditorPage() {
     }
   };
 
-  const handleTranscribe = async (_engine: TranscriptionEngine) => {
+  const handleTranscribe = async (engine: TranscriptionEngine) => {
     if (!videoFile) return;
     setIsTranscribing(true);
     setUploadProgress(0);
@@ -266,7 +266,7 @@ export default function EditorPage() {
     try {
       const formData = new FormData();
       formData.append("file", videoFile);
-      formData.append("engine", aiConfig.transcription);
+      formData.append("engine", engine);
 
       const apiBase = process.env.NEXT_PUBLIC_TRANSCRIBE_API || "https://reelmix-api-production.up.railway.app";
 
