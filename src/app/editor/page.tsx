@@ -15,8 +15,6 @@ import VideoTimeline from "@/components/VideoTimeline";
 import AIModelSettings from "@/components/AIModelSettings";
 import FileHistory from "@/components/FileHistory";
 import { addHistoryEntry, captureThumbnail } from "@/lib/history";
-import { getFFmpeg } from "@/lib/ffmpeg";
-import { fetchFile } from "@ffmpeg/util";
 import type {
   SubtitleSegment,
   SubtitleStyle,
@@ -262,26 +260,18 @@ export default function EditorPage() {
   const handleTranscribe = async (_engine: TranscriptionEngine) => {
     if (!videoFile) return;
     setIsTranscribing(true);
-    setTranscribeStatus("Extracting audio…");
+    setTranscribeStatus("Uploading video…");
     try {
-      // Extract audio client-side to avoid Vercel body size limit
-      const ffmpeg = await getFFmpeg();
-      const inputName = "input" + (videoFile.name.endsWith(".mov") ? ".mov" : ".mp4");
-      await ffmpeg.writeFile(inputName, await fetchFile(videoFile));
-      await ffmpeg.exec(["-i", inputName, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", "audio.mp3"]);
-      const audioData = await ffmpeg.readFile("audio.mp3") as Uint8Array;
-      const audioBytes = new Uint8Array(audioData);
-      const audioBlob = new Blob([audioBytes], { type: "audio/mpeg" });
-      await ffmpeg.deleteFile(inputName);
-      await ffmpeg.deleteFile("audio.mp3");
-
-      setTranscribeStatus("Transcribing with AI…");
-
+      // Send video directly to Railway backend (handles any file size, native ffmpeg)
       const formData = new FormData();
-      formData.append("file", new File([audioBlob], "audio.mp3", { type: "audio/mpeg" }));
+      formData.append("file", videoFile);
       formData.append("engine", aiConfig.transcription);
 
-      const res = await fetch("/api/transcribe", {
+      const apiBase = process.env.NEXT_PUBLIC_TRANSCRIBE_API || "https://reelmix-api-production.up.railway.app";
+
+      setTranscribeStatus("Processing & transcribing…");
+
+      const res = await fetch(apiBase + "/transcribe", {
         method: "POST",
         body: formData,
       });
@@ -292,7 +282,7 @@ export default function EditorPage() {
           throw new Error(errJson.error || "Transcription failed");
         } catch (e) {
           if (e instanceof SyntaxError) {
-            throw new Error(res.status === 413 ? "Audio too large. Try a shorter clip." : "Server error: " + res.status);
+            throw new Error("Server error: " + res.status);
           }
           throw e;
         }
