@@ -313,17 +313,36 @@ export default function VideoProcessor({
                 <div className="overflow-hidden rounded-xl border border-white/[0.06]">
                   <video src={outputUrl} controls playsInline className="w-full" />
                 </div>
-                <a
-                  href={outputUrl}
-                  download="reelmix-export.mp4"
-                  className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e09145] to-[#d07a2f] text-[14px] font-semibold text-white shadow-lg shadow-[#e09145]/20 transition hover:brightness-110"
+                <button
+                  onClick={async () => {
+                    try {
+                      // Fetch blob from URL for reliable download
+                      const response = await fetch(outputUrl);
+                      const blob = await response.blob();
+                      const downloadUrl = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = downloadUrl;
+                      a.download = `reelmix-${Date.now()}.mp4`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+                    } catch {
+                      // Fallback for mobile: open in new tab
+                      window.open(outputUrl, "_blank");
+                    }
+                  }}
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e09145] to-[#d07a2f] text-[15px] font-bold text-white shadow-lg shadow-[#e09145]/30 transition hover:brightness-110 active:scale-[0.98]"
                 >
                   <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
                     <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
                     <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
                   </svg>
-                  Download to Device
-                </a>
+                  Download Video
+                </button>
+                <p className="text-center text-[11px] text-white/30">
+                  On mobile: tap and hold the video above, then select &quot;Save to Photos&quot;
+                </p>
               </div>
             )}
           </div>

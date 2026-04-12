@@ -30,16 +30,25 @@ function isKeywordEntry(
 function buildPrompt(
   sanitized: { start: number; end: number; text: string }[],
 ): string {
-  return `You analyze video subtitle segments and extract 5 to 10 concise visual keywords or short phrases that would help find stock images, B-roll, or illustrations for the video.
+  return `You are a professional video editor selecting B-roll footage for a video. Analyze the subtitle segments below and extract 5-8 highly visual, SPECIFIC keywords that describe concrete objects, actions, locations, or scenes mentioned in the narration. These will be used to search stock photos (Pexels) and GIFs (GIPHY).
+
+RULES for great B-roll keywords:
+1. Use CONCRETE nouns and simple phrases that exist as stock photos (e.g. "mountain sunrise", "coffee cup", "running on beach", "laptop typing", "city skyline")
+2. Skip abstract concepts (e.g. "success", "happiness", "idea") — these don't return good B-roll
+3. Focus on the most visually compelling moment in each segment
+4. DO NOT place keywords in the first 10 seconds (intro section)
+5. Space keywords out — at least 5 seconds apart
+6. Keep keywords SHORT: 1-3 words maximum
+7. If the video is in Hebrew/other language, TRANSLATE the keyword to English (stock photos are indexed in English)
 
 For each keyword:
-- Choose startTime and endTime (seconds, numbers) indicating when that keyword is most relevant based on the subtitle timeline. Use segment boundaries; startTime must be <= endTime.
+- startTime/endTime (seconds): when the keyword is most relevant. startTime >= 10, duration 2-4 seconds
 
 Input segments (JSON):
 ${JSON.stringify(sanitized)}
 
-Return ONLY valid JSON (no markdown) in this exact shape:
-{"keywords":[{"keyword":"string","startTime":0,"endTime":1.5},...]}`;
+Return ONLY valid JSON (no markdown):
+{"keywords":[{"keyword":"mountain sunrise","startTime":12.5,"endTime":15.0},...]}`;
 }
 
 async function extractWithGemini(

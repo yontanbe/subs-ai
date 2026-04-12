@@ -44,7 +44,7 @@ const DEFAULT_LAYOUT: LayoutConfig = {
 };
 
 const DEFAULT_AI_CONFIG: AIModelConfig = {
-  transcription: "groq",
+  transcription: "openai",
   translation: "gemini",
   keywordExtraction: "gemini",
 };
@@ -193,10 +193,13 @@ export default function EditorPage() {
         "slide-right",
       ];
 
-      for (let i = 0; i < keywords.length; i++) {
-        const kw = keywords[i];
+      // Industry standard: skip B-roll in the first 10 seconds (intro/hook)
+      const filteredKeywords = keywords.filter((k) => k.startTime >= 10);
+
+      for (let i = 0; i < filteredKeywords.length; i++) {
+        const kw = filteredKeywords[i];
         setOverlayProgress(
-          `Fetching B-roll for "${kw.keyword}"… (${i + 1}/${keywords.length})`,
+          `Fetching B-roll for "${kw.keyword}"… (${i + 1}/${filteredKeywords.length})`,
         );
 
         let items: MediaItem[] = [];

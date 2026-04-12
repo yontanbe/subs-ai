@@ -56,6 +56,12 @@ export default function NavBar() {
             >
               {t("nav.calendar")}
             </Link>
+            <Link
+              href="/admin"
+              className="rounded-full px-5 py-2 text-[13px] font-medium text-white/40 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/85"
+            >
+              Admin
+            </Link>
           </div>
         </Show>
 

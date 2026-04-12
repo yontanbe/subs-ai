@@ -25,7 +25,7 @@ export default function VideoUploader({
   const [fileName, setFileName] = useState<string>("");
   const [fileSize, setFileSize] = useState<string>("");
   const [sizeWarning, setSizeWarning] = useState<string>("");
-  const [engine, setEngine] = useState<TranscriptionEngine>("groq");
+  const [engine, setEngine] = useState<TranscriptionEngine>("openai");
   const [dragOver, setDragOver] = useState(false);
 
   // Revoke object URL on unmount or when preview changes
@@ -171,61 +171,90 @@ export default function VideoUploader({
             <p className="text-center text-[12px] text-amber-400/70">{sizeWarning}</p>
           )}
 
-          {/* Processing steps */}
+          {/* Full-screen processing modal */}
           {isProcessing && (
-            <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${step >= 1 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
-                  {step > 1 ? "\u2713" : "1"}
-                </div>
-                <div className="flex-1">
-                  <p className={`text-[13px] font-medium ${step === 1 ? "text-white/90" : step > 1 ? "text-white/40" : "text-white/25"}`}>
-                    Uploading video
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <div className="w-full max-w-lg rounded-3xl border border-white/[0.08] bg-[#0a0a0f] p-8 shadow-2xl">
+                <div className="mb-8 text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#e09145] to-[#d07a2f] shadow-lg shadow-[#e09145]/40">
+                    <span className="spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white/95">
+                    {step === 1 ? "Uploading Video" : step === 2 ? "Extracting Audio" : "Transcribing with AI"}
+                  </h2>
+                  <p className="mt-2 text-[14px] text-white/50">
+                    {step === 1 ? "Sending your video to the server" : step === 2 ? "Converting audio for AI processing" : "Generating subtitles, this may take a minute"}
                   </p>
-                  {step === 1 && uploadProgress !== undefined && (
-                    <div className="mt-1.5">
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#e09145] to-[#f0b678] transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                      <p className="mt-1 text-[11px] text-white/30">{uploadProgress}%</p>
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${step >= 2 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
-                  {step > 2 ? "\u2713" : "2"}
-                </div>
-                <div className="flex-1">
-                  <p className={`text-[13px] font-medium ${step === 2 ? "text-white/90" : step > 2 ? "text-white/40" : "text-white/25"}`}>
-                    Extracting audio
-                  </p>
-                  {step === 2 && (
-                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                      <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-[#e09145]/60 to-[#f0b678]/60" />
-                    </div>
-                  )}
-                </div>
-              </div>
+                {/* Big progress percentage */}
+                {step === 1 && uploadProgress !== undefined && (
+                  <div className="mb-6 text-center">
+                    <div className="text-5xl font-bold text-[#e09145]">{uploadProgress}<span className="text-2xl">%</span></div>
+                  </div>
+                )}
 
-              <div className="flex items-center gap-3">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${step >= 3 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
-                  {step > 3 ? "\u2713" : "3"}
-                </div>
-                <div className="flex-1">
-                  <p className={`text-[13px] font-medium ${step === 3 ? "text-white/90" : step > 3 ? "text-white/40" : "text-white/25"}`}>
-                    Transcribing with AI
-                  </p>
-                  {step === 3 && (
-                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                      <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-[#e09145]/60 to-[#f0b678]/60" />
+                <div className="space-y-4">
+                  {/* Step 1 */}
+                  <div className="flex items-center gap-4">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-bold transition-all ${step >= 1 ? "bg-[#e09145] text-white shadow-lg shadow-[#e09145]/30" : "bg-white/[0.06] text-white/30"}`}>
+                      {step > 1 ? "\u2713" : "1"}
                     </div>
-                  )}
+                    <div className="flex-1">
+                      <p className={`text-[15px] font-semibold ${step === 1 ? "text-white/95" : step > 1 ? "text-white/40" : "text-white/25"}`}>
+                        Upload video
+                      </p>
+                      {step === 1 && uploadProgress !== undefined && (
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#e09145] to-[#f0b678] transition-all duration-500"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      )}
+                      {step > 1 && <p className="mt-0.5 text-[12px] text-white/40">Complete</p>}
+                    </div>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="flex items-center gap-4">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-bold transition-all ${step >= 2 ? "bg-[#e09145] text-white shadow-lg shadow-[#e09145]/30" : "bg-white/[0.06] text-white/30"}`}>
+                      {step > 2 ? "\u2713" : "2"}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-[15px] font-semibold ${step === 2 ? "text-white/95" : step > 2 ? "text-white/40" : "text-white/25"}`}>
+                        Extract audio
+                      </p>
+                      {step === 2 && (
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                          <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-[#e09145]/60 to-[#f0b678]/60" />
+                        </div>
+                      )}
+                      {step > 2 && <p className="mt-0.5 text-[12px] text-white/40">Complete</p>}
+                    </div>
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="flex items-center gap-4">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-bold transition-all ${step >= 3 ? "bg-[#e09145] text-white shadow-lg shadow-[#e09145]/30" : "bg-white/[0.06] text-white/30"}`}>
+                      {step > 3 ? "\u2713" : "3"}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-[15px] font-semibold ${step === 3 ? "text-white/95" : step > 3 ? "text-white/40" : "text-white/25"}`}>
+                        AI Transcription
+                      </p>
+                      {step === 3 && (
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                          <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-[#e09145]/60 to-[#f0b678]/60" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                <p className="mt-6 text-center text-[11px] text-white/25">
+                  Please keep this tab open while processing
+                </p>
               </div>
             </div>
           )}
@@ -244,8 +273,8 @@ export default function VideoUploader({
                   }
                   className="input-glass w-full rounded-xl px-3 py-2.5 text-[13px] text-white/80"
                 >
-                  <option value="groq">Groq Whisper — Free</option>
-                  <option value="openai">OpenAI Whisper — Paid</option>
+                  <option value="openai">OpenAI Whisper — Best quality ($0.006/min)</option>
+                  <option value="groq">Groq Whisper — Free (lower quality)</option>
                 </select>
               </div>
               <button
