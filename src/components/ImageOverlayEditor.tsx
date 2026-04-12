@@ -57,7 +57,7 @@ export default function ImageOverlayEditor({
   const addOverlay = () => {
     const url = newUrl.trim();
     if (!url) return;
-    const end = Math.min(videoDuration, Math.max(0, videoDuration));
+    const end = Math.min(videoDuration, 5);
     const overlay: ImageOverlay = {
       id: crypto.randomUUID(),
       imageUrl: url,

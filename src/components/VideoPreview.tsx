@@ -186,13 +186,15 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
               key={overlay.id}
               className={`pointer-events-none z-[5] ${pos} ${anim ?? ""}`}
             >
-              <div style={{ transform: `scale(${overlay.scale})` }}>
-                <img
-                  src={overlay.imageUrl}
-                  alt=""
-                  className="max-h-[30%] max-w-[30%] object-contain"
-                />
-              </div>
+              <img
+                src={overlay.imageUrl}
+                alt=""
+                className="object-contain rounded-lg shadow-lg"
+                style={{
+                  width: `${(overlay.scale || 0.25) * 100}%`,
+                  maxHeight: `${(overlay.scale || 0.25) * 100}%`,
+                }}
+              />
             </div>
           );
         })}

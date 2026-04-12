@@ -266,7 +266,7 @@ export default function VideoProcessor({
       await run(cmd);
 
       const data = (await ffmpeg.readFile("output.mp4")) as unknown as Uint8Array;
-      const blob = new Blob([data.buffer as ArrayBuffer], { type: "video/mp4" });
+      const blob = new Blob([new Uint8Array(data)], { type: "video/mp4" });
       const url = URL.createObjectURL(blob);
       setOutputUrl(url);
       setProgress("Complete");

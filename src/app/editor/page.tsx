@@ -203,9 +203,14 @@ export default function EditorPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ keywords: [kw.keyword] }),
           });
-          const mediaData = await mediaRes.json();
-          items = mediaData.items ?? [];
-        } catch {
+          if (mediaRes.ok) {
+            const mediaData = await mediaRes.json();
+            items = mediaData.items ?? [];
+          }
+        } catch { /* network error */ }
+
+        // Retry with simpler keyword if no results
+        if (items.length === 0) {
           try {
             const simpleKw = kw.keyword.split(/\s+/)[0];
             const retryRes = await fetch("/api/keywords", {
@@ -213,11 +218,11 @@ export default function EditorPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ keywords: [simpleKw] }),
             });
-            const retryData = await retryRes.json();
-            items = retryData.items ?? [];
-          } catch {
-            /* skip */
-          }
+            if (retryRes.ok) {
+              const retryData = await retryRes.json();
+              items = retryData.items ?? [];
+            }
+          } catch { /* skip */ }
         }
 
         const preferGif = i % 2 === 1;
