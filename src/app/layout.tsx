@@ -42,7 +42,34 @@ export default function RootLayout({
       className={`${manrope.variable} ${jetbrains.variable} h-full`}
     >
       <body className="min-h-full flex flex-col antialiased">
-        <ClerkProvider>
+        <ClerkProvider
+          appearance={{
+            variables: {
+              colorPrimary: "#e09145",
+              colorBackground: "#0a0a0f",
+              colorInputBackground: "#111118",
+              colorInputText: "#ffffffdd",
+              colorText: "#ffffffdd",
+              colorTextSecondary: "#ffffff80",
+              colorNeutral: "#ffffff",
+              borderRadius: "0.75rem",
+            },
+            elements: {
+              card: "bg-[#0a0a0f] border border-white/[0.06] shadow-2xl",
+              socialButtonsBlockButton:
+                "bg-white/[0.04] border-white/[0.08] text-white/80 hover:bg-white/[0.08]",
+              formFieldInput:
+                "bg-[#111118] border-white/[0.08] text-white/90 placeholder:text-white/25",
+              footerActionLink: "text-[#e09145] hover:text-[#f0b678]",
+              headerTitle: "text-white/90",
+              headerSubtitle: "text-white/40",
+              dividerLine: "bg-white/[0.06]",
+              dividerText: "text-white/30",
+              formButtonPrimary:
+                "bg-gradient-to-r from-[#e09145] to-[#d07a2f] hover:brightness-110 shadow-lg shadow-[#e09145]/20",
+            },
+          }}
+        >
           <Providers>
             <NavBar />
             <main className="flex-1">{children}</main>
