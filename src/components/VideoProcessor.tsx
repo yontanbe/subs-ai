@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { fetchFile } from "@ffmpeg/util";
 import { getFFmpeg } from "@/lib/ffmpeg";
 import { generateASS } from "@/lib/srt";
@@ -110,16 +110,6 @@ export default function VideoProcessor({
   const [progressPct, setProgressPct] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
-  const [canExport, setCanExport] = useState(true);
-
-  // Check real SharedArrayBuffer usability on mount
-  useEffect(() => {
-    const sabDefined = typeof SharedArrayBuffer !== "undefined";
-    // crossOriginIsolated is the true indicator SAB works in workers
-    const isolated =
-      typeof window !== "undefined" && window.crossOriginIsolated !== false;
-    setCanExport(sabDefined && isolated);
-  }, []);
 
   const handleProcess = async () => {
     if (!videoFile || segments.length === 0) return;
@@ -253,18 +243,9 @@ export default function VideoProcessor({
   return (
     <>
       <div className="animate-fade-up space-y-4">
-        {!canExport && (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-[13px] text-amber-400">
-            <strong>Export unavailable in this browser.</strong>
-            <span className="mt-1 block text-amber-300/80">
-              Try reloading the page. If it still doesn&apos;t work, use Chrome, Firefox, or Safari 17.4+ on a regular browser tab (not an in-app browser like Instagram or Facebook).
-            </span>
-          </div>
-        )}
-
         <button
           onClick={handleProcess}
-          disabled={processing || !videoFile || segments.length === 0 || !canExport}
+          disabled={processing || !videoFile || segments.length === 0}
           className="btn-glow group relative w-full overflow-hidden rounded-2xl py-4 text-[14px] font-semibold text-white disabled:opacity-40"
         >
           {processing && (
