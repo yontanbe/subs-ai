@@ -112,11 +112,13 @@ export default function VideoProcessor({
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [canExport, setCanExport] = useState(true);
 
-  // Check SharedArrayBuffer support on mount
+  // Check real SharedArrayBuffer usability on mount
   useEffect(() => {
-    if (typeof SharedArrayBuffer === "undefined") {
-      setCanExport(false);
-    }
+    const sabDefined = typeof SharedArrayBuffer !== "undefined";
+    // crossOriginIsolated is the true indicator SAB works in workers
+    const isolated =
+      typeof window !== "undefined" && window.crossOriginIsolated !== false;
+    setCanExport(sabDefined && isolated);
   }, []);
 
   const handleProcess = async () => {
@@ -253,7 +255,10 @@ export default function VideoProcessor({
       <div className="animate-fade-up space-y-4">
         {!canExport && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-[13px] text-amber-400">
-            Export is not available in this browser. In-app browsers (Instagram, Facebook, TikTok) do not support video processing. Please open this link in Safari, Chrome, or Firefox instead.
+            <strong>Export unavailable in this browser.</strong>
+            <span className="mt-1 block text-amber-300/80">
+              Try reloading the page. If it still doesn&apos;t work, use Chrome, Firefox, or Safari 17.4+ on a regular browser tab (not an in-app browser like Instagram or Facebook).
+            </span>
           </div>
         )}
 
