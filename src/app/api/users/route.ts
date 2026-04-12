@@ -1,26 +1,19 @@
 import { NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
+import { neon } from "@neondatabase/serverless";
 
 export async function GET() {
   try {
-    const client = await clerkClient();
-    const { data: users } = await client.users.getUserList({ limit: 100 });
+    const sql = neon(process.env.DATABASE_URL!);
+    const users = await sql`
+      SELECT clerk_id, email, first_name, last_name, image_url, country, last_sign_in_at, created_at, updated_at
+      FROM clerk_users
+      ORDER BY created_at DESC
+      LIMIT 200
+    `;
 
-    const mapped = users.map((u) => ({
-      id: u.id,
-      email: u.emailAddresses[0]?.emailAddress ?? null,
-      name: [u.firstName, u.lastName].filter(Boolean).join(" ") || null,
-      imageUrl: u.imageUrl,
-      createdAt: u.createdAt,
-      lastSignInAt: u.lastSignInAt,
-    }));
-
-    return NextResponse.json({ users: mapped });
+    return NextResponse.json({ users });
   } catch (err) {
     console.error("Users list error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch users" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
   }
 }
