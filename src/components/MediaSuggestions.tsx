@@ -7,11 +7,12 @@ interface Props {
   items: MediaItem[];
   isLoading: boolean;
   onFetch: (keywords: string) => void;
+  onAddAsOverlay?: (imageUrl: string) => void;
 }
 
 type Tab = "all" | "ai" | "image" | "gif";
 
-export default function MediaSuggestions({ items, isLoading, onFetch }: Props) {
+export default function MediaSuggestions({ items, isLoading, onFetch, onAddAsOverlay }: Props) {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("all");
 
@@ -91,9 +92,22 @@ export default function MediaSuggestions({ items, isLoading, onFetch }: Props) {
                 loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-              <span className="absolute bottom-1 left-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white/70 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
-                {item.source}
-              </span>
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-1.5 py-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="rounded bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white/70 backdrop-blur-sm">
+                  {item.source}
+                </span>
+                {onAddAsOverlay && (item.type === "image" || item.type === "gif") && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddAsOverlay(item.url);
+                    }}
+                    className="rounded bg-[#3dd6c8]/80 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm transition hover:bg-[#3dd6c8]"
+                  >
+                    + Overlay
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

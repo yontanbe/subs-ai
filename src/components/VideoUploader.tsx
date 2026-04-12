@@ -94,6 +94,7 @@ export default function VideoUploader({
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) handleFile(file);
+            if (inputRef.current) inputRef.current.value = "";
           }}
         />
       </div>

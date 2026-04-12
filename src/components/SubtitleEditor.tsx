@@ -1,14 +1,22 @@
 "use client";
 
-import type { SubtitleSegment } from "@/types";
+import type { SubtitleSegment, TargetLanguage } from "@/types";
 
 interface Props {
   segments: SubtitleSegment[];
   onChange: (segments: SubtitleSegment[]) => void;
-  onTranslate: () => void;
+  onTranslate: (lang: TargetLanguage) => void;
   isTranslating: boolean;
   isTranslated: boolean;
+  targetLanguage: TargetLanguage;
+  onLanguageChange: (lang: TargetLanguage) => void;
 }
+
+const LANGUAGES: { value: TargetLanguage; label: string; flag: string }[] = [
+  { value: "original", label: "Original", flag: "🗣️" },
+  { value: "he", label: "Hebrew", flag: "🇮🇱" },
+  { value: "en", label: "English", flag: "🇺🇸" },
+];
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -22,6 +30,8 @@ export default function SubtitleEditor({
   onTranslate,
   isTranslating,
   isTranslated,
+  targetLanguage,
+  onLanguageChange,
 }: Props) {
   const updateText = (index: number, text: string) => {
     const updated = [...segments];
@@ -40,18 +50,36 @@ export default function SubtitleEditor({
             {segments.length} segments detected
           </p>
         </div>
-        <button
-          onClick={onTranslate}
-          disabled={isTranslating || segments.length === 0}
-          className="flex items-center gap-2 rounded-xl bg-[#3dd6c8]/10 border border-[#3dd6c8]/20 px-4 py-2 text-[12px] font-semibold text-[#3dd6c8] transition hover:bg-[#3dd6c8]/15 disabled:opacity-50"
-        >
-          {isTranslating && <span className="spinner" style={{ borderTopColor: "#3dd6c8" }} />}
-          {isTranslating
-            ? "Translating…"
-            : isTranslated
-              ? "Re-translate"
-              : "Translate to Hebrew"}
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-white/[0.06] bg-white/[0.02] p-0.5">
+            {LANGUAGES.map((lang) => (
+              <button
+                key={lang.value}
+                onClick={() => onLanguageChange(lang.value)}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all duration-200 ${
+                  targetLanguage === lang.value
+                    ? "bg-[#3dd6c8]/15 text-[#3dd6c8] shadow-sm"
+                    : "text-white/30 hover:text-white/50"
+                }`}
+              >
+                <span className="mr-1">{lang.flag}</span>
+                {lang.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => onTranslate(targetLanguage)}
+            disabled={isTranslating || segments.length === 0 || targetLanguage === "original"}
+            className="flex items-center gap-2 rounded-xl bg-[#3dd6c8]/10 border border-[#3dd6c8]/20 px-4 py-2 text-[12px] font-semibold text-[#3dd6c8] transition hover:bg-[#3dd6c8]/15 disabled:opacity-50"
+          >
+            {isTranslating && <span className="spinner" style={{ borderTopColor: "#3dd6c8" }} />}
+            {isTranslating
+              ? "Translating…"
+              : isTranslated
+                ? "Re-translate"
+                : "Translate"}
+          </button>
+        </div>
       </div>
 
       <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">

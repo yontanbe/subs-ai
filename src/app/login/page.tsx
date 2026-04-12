@@ -41,7 +41,7 @@ export default function LoginPage() {
             Welcome back
           </h1>
           <p className="mt-2 text-[13px] text-white/35">
-            Sign in to your SubsAI account
+            Sign in to your ReelMix account
           </p>
         </div>
 

@@ -1,19 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import VideoUploader from "@/components/VideoUploader";
 import SubtitleEditor from "@/components/SubtitleEditor";
 import SubtitleStyler from "@/components/SubtitleStyler";
-import VideoPreview from "@/components/VideoPreview";
+import VideoPreview, { type VideoPreviewHandle } from "@/components/VideoPreview";
 import VideoProcessor from "@/components/VideoProcessor";
 import MediaSuggestions from "@/components/MediaSuggestions";
 import MusicPicker from "@/components/MusicPicker";
+import ImageOverlayEditor from "@/components/ImageOverlayEditor";
+import YouTubeImporter from "@/components/YouTubeImporter";
+import LayoutPicker from "@/components/LayoutPicker";
+import VideoTimeline from "@/components/VideoTimeline";
+import AIModelSettings from "@/components/AIModelSettings";
+import FileHistory from "@/components/FileHistory";
+import { addHistoryEntry, captureThumbnail } from "@/lib/history";
 import type {
   SubtitleSegment,
   SubtitleStyle,
   TranscriptionEngine,
   MediaItem,
   MusicTrack,
+  TargetLanguage,
+  ImageOverlay,
+  LayoutConfig,
+  OverlayPosition,
+  OverlayAnimation,
+  AIModelConfig,
+  LLMProvider,
 } from "@/types";
 
 const DEFAULT_STYLE: SubtitleStyle = {
@@ -23,33 +37,232 @@ const DEFAULT_STYLE: SubtitleStyle = {
   fontName: "Noto Sans Hebrew",
 };
 
+const DEFAULT_LAYOUT: LayoutConfig = {
+  layout: "main-only",
+  pipCorner: "bottom-right",
+  ratio: 0.5,
+};
+
+const DEFAULT_AI_CONFIG: AIModelConfig = {
+  transcription: "groq",
+  translation: "gemini",
+  keywordExtraction: "gemini",
+};
+
+type EditorStep = "upload" | "edit" | "export";
+
+const STEP_META: { id: EditorStep; label: string; num: number }[] = [
+  { id: "upload", label: "Upload & Transcribe", num: 1 },
+  { id: "edit", label: "Edit & Enhance", num: 2 },
+  { id: "export", label: "Export", num: 3 },
+];
+
 export default function EditorPage() {
+  const previewRef = useRef<VideoPreviewHandle>(null);
+
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>("");
+  const [videoDuration, setVideoDuration] = useState(0);
   const [segments, setSegments] = useState<SubtitleSegment[]>([]);
   const [style, setStyle] = useState<SubtitleStyle>(DEFAULT_STYLE);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslated, setIsTranslated] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState<TargetLanguage>("he");
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
   const [musicVolume, setMusicVolume] = useState(15);
+  const [overlays, setOverlays] = useState<ImageOverlay[]>([]);
+  const [secondaryVideoFile, setSecondaryVideoFile] = useState<File | null>(null);
+  const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>(DEFAULT_LAYOUT);
+  const [isGeneratingOverlays, setIsGeneratingOverlays] = useState(false);
+  const [overlayProgress, setOverlayProgress] = useState("");
+  const [currentTime, setCurrentTime] = useState(0);
+  const [titleText, setTitleText] = useState("");
+  const [titleDuration, setTitleDuration] = useState(3);
+  const [aiConfig, setAIConfig] = useState<AIModelConfig>(DEFAULT_AI_CONFIG);
+  const [historyKey, setHistoryKey] = useState(0);
 
-  const handleVideoSelected = (file: File) => {
-    setVideoFile(file);
-    setVideoUrl(URL.createObjectURL(file));
+  const handleExportComplete = useCallback(async () => {
+    const thumb = videoUrl ? await captureThumbnail(videoUrl) : undefined;
+    addHistoryEntry({
+      id: crypto.randomUUID(),
+      fileName: videoFile?.name ?? "video",
+      createdAt: new Date().toISOString(),
+      duration: videoDuration,
+      subtitleCount: segments.length,
+      overlayCount: overlays.length,
+      language: targetLanguage,
+      hasMusic: !!selectedTrack,
+      thumbnailDataUrl: thumb,
+    });
+    setHistoryKey((k) => k + 1);
+  }, [videoFile, videoUrl, videoDuration, segments, overlays, targetLanguage, selectedTrack]);
+
+  const activeStep: EditorStep =
+    !videoFile || (segments.length === 0 && !isTranscribing)
+      ? "upload"
+      : "edit";
+
+  const handleResetToUpload = () => {
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoFile(null);
+    setVideoUrl("");
+    setVideoDuration(0);
     setSegments([]);
     setIsTranslated(false);
+    setOverlays([]);
+    setSecondaryVideoFile(null);
+    setLayoutConfig(DEFAULT_LAYOUT);
+    setTitleText("");
+    setTitleDuration(3);
+    setCurrentTime(0);
+    setOverlayProgress("");
+    setMediaItems([]);
+    setSelectedTrack(null);
   };
 
-  const handleTranscribe = async (engine: TranscriptionEngine) => {
+  const [sidebarTab, setSidebarTab] = useState<"style" | "media" | "layout" | "ai">("style");
+
+  const handleVideoSelected = (file: File) => {
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+
+    setVideoFile(file);
+    const url = URL.createObjectURL(file);
+    setVideoUrl(url);
+    setSegments([]);
+    setIsTranslated(false);
+    setOverlays([]);
+    setSecondaryVideoFile(null);
+    setLayoutConfig(DEFAULT_LAYOUT);
+    setTitleText("");
+    setTitleDuration(3);
+    setCurrentTime(0);
+    setOverlayProgress("");
+    setMediaItems([]);
+
+    const probe = document.createElement("video");
+    probe.preload = "metadata";
+    probe.onloadedmetadata = () => {
+      setVideoDuration(probe.duration);
+      URL.revokeObjectURL(probe.src);
+    };
+    probe.src = URL.createObjectURL(file);
+  };
+
+  const runAutoOverlayPipeline = async (segs: SubtitleSegment[]) => {
+    setIsGeneratingOverlays(true);
+    setOverlayProgress("Analyzing video content...");
+
+    try {
+      setOverlayProgress("Extracting visual keywords...");
+      const kwRes = await fetch("/api/extract-keywords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ segments: segs, provider: aiConfig.keywordExtraction }),
+      });
+      const kwData = await kwRes.json();
+      if (kwData.error || !kwData.keywords?.length) {
+        setOverlayProgress("");
+        return;
+      }
+
+      const keywords: { keyword: string; startTime: number; endTime: number }[] =
+        kwData.keywords;
+
+      const newOverlays: ImageOverlay[] = [];
+      const positions: OverlayPosition[] = [
+        "bottom-right",
+        "bottom-left",
+        "top-right",
+        "top-left",
+        "center",
+      ];
+      const animations: OverlayAnimation[] = [
+        "fade-in",
+        "slide-up",
+        "zoom",
+        "slide-left",
+        "slide-right",
+      ];
+
+      for (let i = 0; i < keywords.length; i++) {
+        const kw = keywords[i];
+        setOverlayProgress(
+          `Fetching media for "${kw.keyword}"... (${i + 1}/${keywords.length})`,
+        );
+
+        let items: MediaItem[] = [];
+
+        try {
+          const mediaRes = await fetch("/api/keywords", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ keywords: [kw.keyword] }),
+          });
+          const mediaData = await mediaRes.json();
+          items = mediaData.items ?? [];
+        } catch {
+          try {
+            const simpleKw = kw.keyword.split(/\s+/)[0];
+            const retryRes = await fetch("/api/keywords", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ keywords: [simpleKw] }),
+            });
+            const retryData = await retryRes.json();
+            items = retryData.items ?? [];
+          } catch {
+            /* skip */
+          }
+        }
+
+        const preferGif = i % 2 === 1;
+        const mediaItem = preferGif
+          ? items.find((m) => m.type === "gif") || items.find((m) => m.type === "image")
+          : items.find((m) => m.type === "image") || items.find((m) => m.type === "gif");
+
+        if (mediaItem) {
+          const pos = positions[i % positions.length];
+          const duration = kw.endTime - kw.startTime;
+          const adjustedEnd = duration < 1.5 ? kw.startTime + 1.5 : kw.endTime;
+          const overlayScale = pos === "center" ? 0.4 : 0.25;
+          newOverlays.push({
+            id: crypto.randomUUID(),
+            imageUrl: mediaItem.url,
+            position: pos,
+            animation: animations[i % animations.length],
+            startTime: kw.startTime,
+            endTime: adjustedEnd,
+            scale: overlayScale,
+          });
+        }
+      }
+
+      if (newOverlays.length > 0) {
+        setOverlays(newOverlays);
+        setOverlayProgress(`Added ${newOverlays.length} auto-generated overlays`);
+      } else {
+        setOverlayProgress("No matching media found");
+      }
+
+      setTimeout(() => setOverlayProgress(""), 3000);
+    } catch {
+      setOverlayProgress("Auto-overlay generation failed");
+      setTimeout(() => setOverlayProgress(""), 3000);
+    } finally {
+      setIsGeneratingOverlays(false);
+    }
+  };
+
+  const handleTranscribe = async (_engine: TranscriptionEngine) => {
     if (!videoFile) return;
     setIsTranscribing(true);
     try {
       const formData = new FormData();
       formData.append("file", videoFile);
-      formData.append("engine", engine);
+      formData.append("engine", aiConfig.transcription);
 
       const res = await fetch("/api/transcribe", {
         method: "POST",
@@ -59,6 +272,7 @@ export default function EditorPage() {
       if (data.error) throw new Error(data.error);
       setSegments(data.segments);
       setIsTranslated(false);
+      runAutoOverlayPipeline(data.segments);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Transcription failed");
     } finally {
@@ -66,14 +280,14 @@ export default function EditorPage() {
     }
   };
 
-  const handleTranslate = async () => {
-    if (segments.length === 0) return;
+  const handleTranslate = async (lang: TargetLanguage) => {
+    if (segments.length === 0 || lang === "original") return;
     setIsTranslating(true);
     try {
       const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segments }),
+        body: JSON.stringify({ segments, targetLanguage: lang, provider: aiConfig.translation }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -92,7 +306,9 @@ export default function EditorPage() {
       const res = await fetch("/api/keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: keywords.split(/[,\s]+/).filter(Boolean) }),
+        body: JSON.stringify({
+          keywords: keywords.split(/[,\s]+/).filter(Boolean),
+        }),
       });
       const data = await res.json();
       setMediaItems(data.items ?? []);
@@ -103,74 +319,303 @@ export default function EditorPage() {
     }
   };
 
+  const handleAddAsOverlay = useCallback(
+    (imageUrl: string) => {
+      const overlay: ImageOverlay = {
+        id: crypto.randomUUID(),
+        imageUrl,
+        position: "bottom-right",
+        animation: "fade-in",
+        startTime: 0,
+        endTime: videoDuration || 10,
+        scale: 0.3,
+      };
+      setOverlays((prev) => [...prev, overlay]);
+    },
+    [videoDuration],
+  );
+
+  const handleYouTubeImported = (file: File, _title: string) => {
+    setSecondaryVideoFile(file);
+    if (layoutConfig.layout === "main-only") {
+      setLayoutConfig({ layout: "side-by-side", ratio: 0.5 });
+    }
+  };
+
+  const handleSeek = useCallback((time: number) => {
+    setCurrentTime(time);
+    previewRef.current?.seek(time);
+  }, []);
+
+  const handleTimeUpdate = useCallback((time: number) => {
+    setCurrentTime(time);
+  }, []);
+
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-white/90">
-          Editor
-        </h1>
-        <p className="mt-1 text-[13px] text-white/30">
-          Upload, transcribe, translate, style, and export
-        </p>
+    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+      {/* Header with step indicators */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-white/90">
+            Video Editor
+          </h1>
+          <p className="mt-1 text-[13px] text-white/35">
+            Upload, transcribe, enhance, and export your video
+          </p>
+        </div>
+
+        {/* Step progress */}
+        <div className="flex items-center gap-1">
+          {STEP_META.map((step, i) => {
+            const isActive = step.id === activeStep;
+            const isDone =
+              step.id === "upload" && segments.length > 0;
+            return (
+              <div key={step.id} className="flex items-center">
+                {i > 0 && (
+                  <div
+                    className={`mx-1.5 h-px w-6 transition-colors ${
+                      isDone ? "bg-[#3dd6c8]" : "bg-white/10"
+                    }`}
+                  />
+                )}
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition-all ${
+                      isDone
+                        ? "bg-[#3dd6c8] text-black"
+                        : isActive
+                          ? "bg-[#e09145] text-white shadow-lg shadow-[#e09145]/30"
+                          : "bg-white/[0.06] text-white/30"
+                    }`}
+                  >
+                    {isDone ? (
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
+                        <path d="M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2.5-2.5a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z" />
+                      </svg>
+                    ) : (
+                      step.num
+                    )}
+                  </div>
+                  <span
+                    className={`text-[11px] font-medium transition-colors ${
+                      isActive ? "text-white/80" : "text-white/30"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-        {/* Main column */}
-        <div className="space-y-6">
+      {/* Upload step */}
+      {activeStep === "upload" && (
+        <div className="mx-auto max-w-2xl space-y-6">
           <VideoUploader
             onVideoSelected={handleVideoSelected}
             onTranscribe={handleTranscribe}
             isProcessing={isTranscribing}
           />
-
-          {videoUrl && segments.length > 0 && (
-            <VideoPreview
-              videoUrl={videoUrl}
-              segments={segments}
-              style={style}
-            />
-          )}
-
-          {segments.length > 0 && (
-            <SubtitleEditor
-              segments={segments}
-              onChange={setSegments}
-              onTranslate={handleTranslate}
-              isTranslating={isTranslating}
-              isTranslated={isTranslated}
-            />
-          )}
-
-          {segments.length > 0 && (
-            <VideoProcessor
-              videoFile={videoFile}
-              segments={segments}
-              style={style}
-              musicUrl={selectedTrack?.url ?? null}
-              musicVolume={musicVolume}
-            />
-          )}
+          <FileHistory key={historyKey} />
         </div>
+      )}
 
-        {/* Sidebar */}
-        <div className="space-y-5">
-          <SubtitleStyler style={style} onChange={setStyle} />
+      {/* Edit step */}
+      {activeStep === "edit" && (
+        <div className="space-y-6">
+          {/* Change video button */}
+          <div className="flex items-center justify-between">
+            <p className="text-[12px] text-white/35">
+              {videoFile?.name}
+              {videoDuration > 0 && ` · ${Math.round(videoDuration)}s`}
+            </p>
+            <button
+              onClick={handleResetToUpload}
+              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-white/50 transition hover:border-white/15 hover:text-white/70"
+            >
+              Change video
+            </button>
+          </div>
 
-          <MusicPicker
-            selectedTrack={selectedTrack}
-            onSelect={setSelectedTrack}
-            musicVolume={musicVolume}
-            onVolumeChange={setMusicVolume}
-          />
+          {/* Auto B-roll status */}
+          {(isGeneratingOverlays || overlayProgress) && (
+            <div className="flex items-center gap-3 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-5 py-3">
+              {isGeneratingOverlays && (
+                <span className="spinner" style={{ borderTopColor: "#3dd6c8" }} />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-cyan-300">
+                  {isGeneratingOverlays ? "Auto-generating B-roll" : "B-roll ready"}
+                </p>
+                {overlayProgress && (
+                  <p className="truncate text-[11px] text-white/40">{overlayProgress}</p>
+                )}
+              </div>
+            </div>
+          )}
 
-          <MediaSuggestions
-            items={mediaItems}
-            isLoading={mediaLoading}
-            onFetch={handleFetchMedia}
-          />
+          {/* Main editing layout: preview + sidebar */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
+            {/* Preview & timeline column */}
+            <div className="space-y-4">
+              <VideoPreview
+                ref={previewRef}
+                videoUrl={videoUrl}
+                segments={segments}
+                style={style}
+                overlays={overlays}
+                showSafeZones
+                onTimeUpdate={handleTimeUpdate}
+              />
+
+              {/* Timeline */}
+              <VideoTimeline
+                videoUrl={videoUrl}
+                videoDuration={videoDuration}
+                segments={segments}
+                overlays={overlays}
+                titleText={titleText}
+                onTitleChange={setTitleText}
+                titleDuration={titleDuration}
+                onTitleDurationChange={setTitleDuration}
+                onSeek={handleSeek}
+                currentTime={currentTime}
+              />
+
+              {/* Subtitle editor */}
+              <SubtitleEditor
+                segments={segments}
+                onChange={setSegments}
+                onTranslate={handleTranslate}
+                isTranslating={isTranslating}
+                isTranslated={isTranslated}
+                targetLanguage={targetLanguage}
+                onLanguageChange={setTargetLanguage}
+              />
+            </div>
+
+            {/* Sidebar with tabs */}
+            <div className="space-y-4">
+              {/* Tab switcher */}
+              <div className="flex rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+                {(
+                  [
+                    { id: "style" as const, label: "Style" },
+                    { id: "media" as const, label: "Media" },
+                    { id: "layout" as const, label: "Layout" },
+                    { id: "ai" as const, label: "AI" },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSidebarTab(tab.id)}
+                    className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-semibold transition-all ${
+                      sidebarTab === tab.id
+                        ? "bg-white/[0.08] text-white/90 shadow-sm"
+                        : "text-white/35 hover:text-white/55"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Style tab */}
+              {sidebarTab === "style" && (
+                <div className="space-y-4">
+                  <SubtitleStyler style={style} onChange={setStyle} />
+                  <MusicPicker
+                    selectedTrack={selectedTrack}
+                    onSelect={setSelectedTrack}
+                    musicVolume={musicVolume}
+                    onVolumeChange={setMusicVolume}
+                  />
+                </div>
+              )}
+
+              {/* Media tab */}
+              {sidebarTab === "media" && (
+                <div className="space-y-4">
+                  <ImageOverlayEditor
+                    overlays={overlays}
+                    onChange={setOverlays}
+                    videoDuration={videoDuration}
+                    mediaSuggestions={mediaItems
+                      .filter((m) => m.type === "image" || m.type === "gif")
+                      .map((m) => m.url)
+                      .slice(0, 6)}
+                  />
+
+                  {segments.length > 0 && (
+                    <button
+                      onClick={() => runAutoOverlayPipeline(segments)}
+                      disabled={isGeneratingOverlays}
+                      className="w-full rounded-xl border border-cyan-500/20 bg-cyan-500/5 py-3 text-[12px] font-semibold text-cyan-400 transition hover:bg-cyan-500/10 disabled:opacity-40"
+                    >
+                      {isGeneratingOverlays
+                        ? "Generating..."
+                        : "Auto-generate B-roll from content"}
+                    </button>
+                  )}
+
+                  <MediaSuggestions
+                    items={mediaItems}
+                    isLoading={mediaLoading}
+                    onFetch={handleFetchMedia}
+                    onAddAsOverlay={handleAddAsOverlay}
+                  />
+                </div>
+              )}
+
+              {/* Layout tab */}
+              {sidebarTab === "layout" && (
+                <div className="space-y-4">
+                  <YouTubeImporter onVideoImported={handleYouTubeImported} />
+
+                  <LayoutPicker
+                    config={layoutConfig}
+                    onChange={setLayoutConfig}
+                    hasSecondaryVideo={!!secondaryVideoFile}
+                  />
+                </div>
+              )}
+
+              {/* AI tab */}
+              {sidebarTab === "ai" && (
+                <AIModelSettings config={aiConfig} onChange={setAIConfig} />
+              )}
+            </div>
+          </div>
+
+          {/* Export section - pinned to bottom */}
+          <div className="glass sticky bottom-4 z-20 rounded-2xl border border-white/[0.08] p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-[15px] font-bold text-white/90">Ready to export</h3>
+                <p className="mt-0.5 text-[12px] text-white/35">
+                  {segments.length} subtitles · {overlays.length} overlays
+                  {selectedTrack ? ` · Music: ${selectedTrack.title}` : ""}
+                  {titleText ? ` · Title: "${titleText}"` : ""}
+                </p>
+              </div>
+              <VideoProcessor
+                videoFile={videoFile}
+                segments={segments}
+                style={style}
+                musicUrl={selectedTrack?.url ?? null}
+                musicVolume={musicVolume}
+                overlays={overlays}
+                secondaryVideoFile={secondaryVideoFile}
+                layoutConfig={layoutConfig}
+                onExportComplete={handleExportComplete}
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

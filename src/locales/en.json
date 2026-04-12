@@ -1,0 +1,114 @@
+{
+  "nav": {
+    "editor": "Editor",
+    "calendar": "Calendar",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "getStarted": "Get Started"
+  },
+  "home": {
+    "badge": "100% free tier stack",
+    "welcomePrefix": "Welcome, ",
+    "title1": "Video subtitles,",
+    "title2": "translated & burned",
+    "subtitle": "Upload a video. Whisper transcribes it. Gemini translates. Style your subtitles, pick background music, and export — all in the browser.",
+    "openEditor": "Open Editor",
+    "contentCalendar": "Content Calendar",
+    "getStartedFree": "Get Started Free",
+    "signIn": "Sign In",
+    "howItWorks": "How It Works",
+    "step1Title": "Upload",
+    "step1Desc": "Drop your video file",
+    "step2Title": "Transcribe & Translate",
+    "step2Desc": "AI processes speech to text",
+    "step3Title": "Export",
+    "step3Desc": "Download with burned subtitles",
+    "featureShowcase": "Everything You Need",
+    "featureShowcaseDesc": "A complete toolkit for creating professional subtitled content",
+    "platformPreview": "Platform-Ready Output",
+    "platformPreviewDesc": "Optimized for every major short-form video platform",
+    "ctaTitle": "Ready to subtitle your videos?",
+    "ctaDesc": "Start creating professional subtitled content in minutes, completely free.",
+    "ctaButton": "Start Now — It's Free"
+  },
+  "editor": {
+    "title": "Editor",
+    "subtitle": "Upload, transcribe, translate, style, and export",
+    "subtitles": "Subtitles",
+    "segmentsDetected": "segments detected",
+    "translating": "Translating…",
+    "retranslate": "Re-translate",
+    "translate": "Translate",
+    "burnExport": "Burn Subtitles & Export",
+    "download": "Download Video",
+    "complete": "Complete",
+    "loadingFFmpeg": "Loading FFmpeg…",
+    "preparingFiles": "Preparing files…",
+    "downloadingMusic": "Downloading music…",
+    "burningSubtitles": "Burning subtitles…"
+  },
+  "media": {
+    "title": "Media",
+    "searchPlaceholder": "Search keywords…",
+    "all": "All",
+    "ai": "AI",
+    "photos": "Photos",
+    "gifs": "GIFs",
+    "emptySearch": "Search keywords to find images",
+    "addAsOverlay": "Add as overlay"
+  },
+  "music": {
+    "title": "Music",
+    "searchPlaceholder": "Search music…"
+  },
+  "style": {
+    "title": "Subtitle Style",
+    "fontSize": "Font Size",
+    "textColor": "Text Color",
+    "outlineColor": "Outline",
+    "font": "Font"
+  },
+  "upload": {
+    "dropzone": "Drop your video here or click to browse",
+    "formats": "MP4, MOV, WebM supported"
+  },
+  "youtube": {
+    "title": "YouTube Import",
+    "placeholder": "Paste YouTube URL…",
+    "import": "Import",
+    "importing": "Importing…"
+  },
+  "overlay": {
+    "title": "Image Overlays",
+    "addOverlay": "Add Overlay",
+    "position": "Position",
+    "animation": "Animation",
+    "scale": "Scale",
+    "startTime": "Start",
+    "endTime": "End",
+    "remove": "Remove",
+    "noOverlays": "No overlays added yet"
+  },
+  "safeZone": {
+    "title": "Safe Zones",
+    "toggle": "Show safe zones",
+    "instagram": "Instagram Reels",
+    "tiktok": "TikTok",
+    "youtube": "YouTube Shorts"
+  },
+  "layout": {
+    "title": "Video Layout",
+    "pip": "Picture-in-Picture",
+    "sideBySide": "Side by Side",
+    "topBottom": "Top & Bottom"
+  },
+  "language": {
+    "original": "Original",
+    "hebrew": "Hebrew",
+    "english": "English"
+  },
+  "calendar": {
+    "title": "Content Calendar",
+    "addEntry": "Add Entry"
+  }
+}

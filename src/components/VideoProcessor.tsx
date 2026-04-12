@@ -4,7 +4,13 @@ import { useState } from "react";
 import { fetchFile } from "@ffmpeg/util";
 import { getFFmpeg } from "@/lib/ffmpeg";
 import { generateASS } from "@/lib/srt";
-import type { SubtitleSegment, SubtitleStyle } from "@/types";
+import type {
+  ImageOverlay,
+  LayoutConfig,
+  PipCorner,
+  SubtitleSegment,
+  SubtitleStyle,
+} from "@/types";
 
 interface Props {
   videoFile: File | null;
@@ -12,6 +18,90 @@ interface Props {
   style: SubtitleStyle;
   musicUrl: string | null;
   musicVolume: number;
+  overlays?: ImageOverlay[];
+  secondaryVideoFile?: File | null;
+  layoutConfig?: LayoutConfig;
+  onExportComplete?: () => void;
+}
+
+function pipOverlayCoords(corner: PipCorner): string {
+  switch (corner) {
+    case "top-left":
+      return "10:10";
+    case "top-right":
+      return "W-w-10:10";
+    case "bottom-left":
+      return "10:H-h-10";
+    case "bottom-right":
+    default:
+      return "W-w-10:H-h-10";
+  }
+}
+
+function imageOverlayCoords(position: ImageOverlay["position"]): string {
+  switch (position) {
+    case "top-left":
+      return "10:10";
+    case "top-right":
+      return "main_w-overlay_w-10:10";
+    case "bottom-left":
+      return "10:main_h-overlay_h-10";
+    case "bottom-right":
+      return "main_w-overlay_w-10:main_h-overlay_h-10";
+    case "center":
+    default:
+      return "(main_w-overlay_w)/2:(main_h-overlay_h)/2";
+  }
+}
+
+/** Returns null when the main stream [0:v] should be used as-is (main-only). */
+function buildCombineFilter(layout: LayoutConfig | undefined): string | null {
+  const mode = layout?.layout ?? "main-only";
+
+  if (mode === "main-only") {
+    return null;
+  }
+
+  const defaultRatio = mode === "pip" ? 0.3 : 0.5;
+  const r = Math.min(0.7, Math.max(0.3, layout?.ratio ?? defaultRatio));
+  const pipRatio = Math.min(0.7, Math.max(0.15, layout?.ratio ?? 0.3));
+  const corner = layout?.pipCorner ?? "bottom-right";
+
+  if (mode === "blur-bg") {
+    return [
+      "[0:v]scale=1280:720:force_original_aspect_ratio=decrease[main]",
+      "[0:v]scale=1280:720,boxblur=20:20[bg]",
+      "[bg][main]overlay=(W-w)/2:(H-h)/2[vcomb]",
+    ].join(";");
+  }
+
+  if (mode === "side-by-side") {
+    return [
+      `[0:v]scale=w=trunc(1280*${r}):h=720:force_original_aspect_ratio=decrease,setsar=1[v0]`,
+      `[1:v]scale=w=trunc(1280*${1 - r}):h=720:force_original_aspect_ratio=decrease,setsar=1[v1]`,
+      `[v0][v1]hstack=inputs=2[vcomb]`,
+    ].join(";");
+  }
+
+  if (mode === "split-border") {
+    return [
+      `[0:v]scale=w=trunc(1280*${r}-2):h=720:force_original_aspect_ratio=decrease,setsar=1[v0]`,
+      `[1:v]scale=w=trunc(1280*${1 - r}-2):h=720:force_original_aspect_ratio=decrease,setsar=1[v1]`,
+      `[v0][v1]hstack=inputs=2[vcomb]`,
+    ].join(";");
+  }
+
+  if (mode === "top-bottom") {
+    return [
+      `[0:v]scale=w=1280:h=trunc(720*${r}):force_original_aspect_ratio=decrease,setsar=1[v0]`,
+      `[1:v]scale=w=1280:h=trunc(720*${1 - r}):force_original_aspect_ratio=decrease,setsar=1[v1]`,
+      `[v0][v1]vstack=inputs=2[vcomb]`,
+    ].join(";");
+  }
+
+  // pip
+  const xy = pipOverlayCoords(corner);
+  return `[0:v][1:v]scale2ref=w=iw*${pipRatio}:h=-2[main][pip];[main][pip]overlay=${xy}[vcomb]`;
 }
 
 export default function VideoProcessor({
@@ -20,6 +110,10 @@ export default function VideoProcessor({
   style,
   musicUrl,
   musicVolume,
+  overlays = [],
+  secondaryVideoFile = null,
+  layoutConfig,
+  onExportComplete,
 }: Props) {
   const [progress, setProgress] = useState("");
   const [progressPct, setProgressPct] = useState(0);
@@ -50,34 +144,118 @@ export default function VideoProcessor({
       const encoder = new TextEncoder();
       await ffmpeg.writeFile("subs.ass", encoder.encode(assContent));
 
+      const hasSecondary = Boolean(secondaryVideoFile);
+      const hasOverlays = overlays.length > 0;
+
+      if (hasSecondary && secondaryVideoFile) {
+        setProgress("Loading secondary video…");
+        setProgressPct(15);
+        const secData = await fetchFile(secondaryVideoFile);
+        await ffmpeg.writeFile("secondary.mp4", secData);
+      }
+
+      for (let i = 0; i < overlays.length; i++) {
+        setProgress(`Downloading overlay ${i + 1}…`);
+        const pct = 15 + Math.round((i / Math.max(1, overlays.length)) * 10);
+        setProgressPct(pct);
+        const imgData = await fetchFile(overlays[i].imageUrl);
+        await ffmpeg.writeFile(`overlay_${i}.png`, imgData);
+      }
+
       const cmd: string[] = ["-i", "input.mp4"];
+      let nextInput = 1;
+      let musicInputIdx: number | null = null;
+
+      if (hasSecondary) {
+        cmd.push("-i", "secondary.mp4");
+        nextInput += 1;
+      }
 
       if (musicUrl) {
         setProgress("Downloading music…");
         setProgressPct(20);
         const musicData = await fetchFile(musicUrl);
         await ffmpeg.writeFile("music.mp3", musicData);
+        musicInputIdx = nextInput;
         cmd.push("-i", "music.mp3");
+        nextInput += 1;
       }
 
-      const vf = "ass=subs.ass";
+      const overlayInputIndices: number[] = [];
+      for (let i = 0; i < overlays.length; i++) {
+        cmd.push("-loop", "1", "-i", `overlay_${i}.png`);
+        overlayInputIndices.push(nextInput);
+        nextInput += 1;
+      }
 
-      if (musicUrl) {
-        const vol = (musicVolume / 100).toFixed(2);
-        cmd.push(
-          "-filter_complex",
-          `[1:a]volume=${vol}[bg];[0:a][bg]amix=inputs=2:duration=first[outa]`,
-          "-map", "0:v",
-          "-map", "[outa]",
-          "-vf", vf
-        );
+      const complexVideo = hasSecondary || hasOverlays;
+
+      if (!complexVideo) {
+        if (!musicUrl) {
+          cmd.push("-vf", "ass=subs.ass", "-c:a", "copy");
+        } else if (musicInputIdx !== null) {
+          const vol = (musicVolume / 100).toFixed(2);
+          cmd.push(
+            "-filter_complex",
+            `[${musicInputIdx}:a]volume=${vol}[bg];[0:a][bg]amix=inputs=2:duration=first[outa]`,
+            "-map",
+            "0:v",
+            "-map",
+            "[outa]",
+            "-vf",
+            "ass=subs.ass"
+          );
+        }
       } else {
-        cmd.push("-vf", vf, "-c:a", "copy");
+        const videoParts: string[] = [];
+
+        const combineFilter = hasSecondary
+          ? buildCombineFilter(layoutConfig)
+          : null;
+        if (combineFilter) {
+          videoParts.push(combineFilter);
+        }
+
+        let vLabel = combineFilter ? "[vcomb]" : "[0:v]";
+
+        for (let i = 0; i < overlays.length; i++) {
+          const o = overlays[i];
+          const oIdx = overlayInputIndices[i];
+          const scale = Math.min(1, Math.max(0.05, o.scale));
+          const start = o.startTime.toFixed(3);
+          const end = o.endTime.toFixed(3);
+          const pos = imageOverlayCoords(o.position);
+          const nextLabel = `[vov${i}]`;
+
+          videoParts.push(
+            `${vLabel}[${oIdx}:v]scale2ref=w=iw*${scale}:h=-2[vb${i}][im${i}]`
+          );
+          videoParts.push(
+            `[vb${i}][im${i}]overlay=${pos}:enable=between(t\\,${start}\\,${end})${nextLabel}`
+          );
+          vLabel = nextLabel;
+        }
+
+        videoParts.push(`${vLabel}ass=subs.ass[outv]`);
+
+        let fc = videoParts.join(";");
+
+        if (musicUrl && musicInputIdx !== null) {
+          const vol = (musicVolume / 100).toFixed(2);
+          fc += `;[${musicInputIdx}:a]volume=${vol}[bg];[0:a][bg]amix=inputs=2:duration=first[outa]`;
+          cmd.push("-filter_complex", fc);
+          cmd.push("-map", "[outv]", "-map", "[outa]");
+        } else {
+          cmd.push("-filter_complex", fc);
+          cmd.push("-map", "[outv]", "-map", "0:a");
+        }
       }
 
       cmd.push(
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
         "-shortest",
         "output.mp4"
       );
@@ -93,6 +271,7 @@ export default function VideoProcessor({
       setOutputUrl(url);
       setProgress("Complete");
       setProgressPct(100);
+      onExportComplete?.();
     } catch (err) {
       setProgress(
         `Error: ${err instanceof Error ? err.message : "Processing failed"}`

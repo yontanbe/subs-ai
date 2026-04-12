@@ -214,3 +214,158 @@ input[type="range"]::-moz-range-thumb {
     radial-gradient(ellipse 500px 350px at 80% 30%, rgba(61, 214, 200, 0.06) 0%, transparent 70%),
     radial-gradient(ellipse 800px 600px at 50% 80%, rgba(100, 60, 180, 0.04) 0%, transparent 70%);
 }
+
+/* Scroll-triggered reveal */
+@keyframes scrollReveal {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scrollRevealLeft {
+  from { opacity: 0; transform: translateX(-32px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scrollRevealRight {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scrollRevealScale {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes blinkCaret {
+  50% { border-color: transparent; }
+}
+
+@keyframes floatParticle {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.4; }
+  50% { transform: translateY(-12px) scale(1.15); opacity: 0.8; }
+}
+
+@keyframes drawLine {
+  from { stroke-dashoffset: 200; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes meshMove {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(30px, -20px) rotate(1deg); }
+  50% { transform: translate(-10px, 15px) rotate(-1deg); }
+  75% { transform: translate(-25px, -10px) rotate(0.5deg); }
+}
+
+@keyframes logoStrip {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(32px);
+}
+
+.scroll-reveal.visible {
+  animation: scrollReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scroll-reveal-left {
+  opacity: 0;
+  transform: translateX(-32px);
+}
+
+.scroll-reveal-left.visible {
+  animation: scrollRevealLeft 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scroll-reveal-right {
+  opacity: 0;
+  transform: translateX(32px);
+}
+
+.scroll-reveal-right.visible {
+  animation: scrollRevealRight 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scroll-reveal-scale {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+.scroll-reveal-scale.visible {
+  animation: scrollRevealScale 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.mesh-bg {
+  animation: meshMove 20s ease-in-out infinite;
+}
+
+.stagger-6 { animation-delay: 480ms; }
+.stagger-7 { animation-delay: 560ms; }
+.stagger-8 { animation-delay: 640ms; }
+
+/* Flow connector line */
+.flow-line {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+}
+
+.flow-line.visible {
+  animation: drawLine 1.2s ease-out forwards;
+}
+
+/* Platform safe zone helpers */
+.safe-zone-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
+.safe-zone-region {
+  position: absolute;
+  border-radius: 4px;
+}
+
+/* Overlay animations */
+.overlay-fade-in {
+  animation: fadeIn 0.5s ease-out both;
+}
+
+.overlay-slide-left {
+  animation: scrollRevealRight 0.5s ease-out both;
+}
+
+.overlay-slide-right {
+  animation: scrollRevealLeft 0.5s ease-out both;
+}
+
+.overlay-slide-up {
+  animation: scrollReveal 0.5s ease-out both;
+}
+
+.overlay-zoom {
+  animation: scrollRevealScale 0.5s ease-out both;
+}
+
+/* CTA gradient section */
+.cta-gradient {
+  background:
+    radial-gradient(ellipse 700px 500px at 50% 50%, rgba(224, 145, 69, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 30% 70%, rgba(61, 214, 200, 0.08) 0%, transparent 70%);
+}
+
+/* Logo strip auto-scroll */
+.logo-strip {
+  animation: logoStrip 30s linear infinite;
+}
+
+.logo-strip:hover {
+  animation-play-state: paused;
+}

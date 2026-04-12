@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { SubtitleSegment, TargetLanguage, LLMProvider } from "@/types";
+import type { SubtitleSegment, LLMProvider } from "@/types";
 
 export const runtime = "edge";
 
-const VALID_LANGUAGES: TargetLanguage[] = ["original", "he", "en"];
 const VALID_PROVIDERS: LLMProvider[] = ["gemini", "openai"];
-
-const LANGUAGE_NAMES: Record<Exclude<TargetLanguage, "original">, string> = {
-  he: "Hebrew",
-  en: "English",
-};
 
 function isValidSegment(s: unknown): s is SubtitleSegment {
   if (typeof s !== "object" || s === null) return false;
@@ -21,25 +15,37 @@ function isValidSegment(s: unknown): s is SubtitleSegment {
   );
 }
 
-function buildPrompt(
-  sanitized: { start: number; end: number; text: string }[],
-  langName: string,
-): string {
-  return `You are a professional subtitle translator. Translate the following subtitle segments to ${langName}.
-Return ONLY a valid JSON array with the same structure, preserving start and end times exactly.
-Keep translations natural, colloquial, and appropriate for video subtitles.
-
-Input segments:
-${JSON.stringify(sanitized)}
-
-Output format (JSON array only, no markdown):
-[{"start": 0, "end": 1.5, "text": "${langName.toLowerCase()} text here"}, ...]`;
+function isKeywordEntry(
+  x: unknown,
+): x is { keyword: string; startTime: number; endTime: number } {
+  if (typeof x !== "object" || x === null) return false;
+  const o = x as Record<string, unknown>;
+  return (
+    typeof o.keyword === "string" &&
+    typeof o.startTime === "number" &&
+    typeof o.endTime === "number"
+  );
 }
 
-async function translateWithGemini(
+function buildPrompt(
+  sanitized: { start: number; end: number; text: string }[],
+): string {
+  return `You analyze video subtitle segments and extract 5 to 10 concise visual keywords or short phrases that would help find stock images, B-roll, or illustrations for the video.
+
+For each keyword:
+- Choose startTime and endTime (seconds, numbers) indicating when that keyword is most relevant based on the subtitle timeline. Use segment boundaries; startTime must be <= endTime.
+
+Input segments (JSON):
+${JSON.stringify(sanitized)}
+
+Return ONLY valid JSON (no markdown) in this exact shape:
+{"keywords":[{"keyword":"string","startTime":0,"endTime":1.5},...]}`;
+}
+
+async function extractWithGemini(
   prompt: string,
   apiKey: string,
-): Promise<SubtitleSegment[]> {
+): Promise<{ keyword: string; startTime: number; endTime: number }[]> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
     {
@@ -48,14 +54,14 @@ async function translateWithGemini(
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.3,
+          temperature: 0.4,
           responseMimeType: "application/json",
         },
       }),
     },
   );
 
-  if (!res.ok) throw new Error("Gemini translation service unavailable");
+  if (!res.ok) throw new Error("Gemini keyword extraction unavailable");
 
   const data = await res.json();
   if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -63,19 +69,28 @@ async function translateWithGemini(
   }
 
   const raw = data.candidates[0].content.parts[0].text;
-  const translated = JSON.parse(raw);
+  const parsed = JSON.parse(raw);
 
-  if (!Array.isArray(translated) || !translated.every(isValidSegment)) {
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("keywords" in parsed)
+  ) {
     throw new Error("Gemini returned unexpected structure");
   }
 
-  return translated;
+  const list = (parsed as { keywords: unknown }).keywords;
+  if (!Array.isArray(list) || !list.every(isKeywordEntry)) {
+    throw new Error("Gemini returned unexpected keyword structure");
+  }
+
+  return list;
 }
 
-async function translateWithOpenAI(
+async function extractWithOpenAI(
   prompt: string,
   apiKey: string,
-): Promise<SubtitleSegment[]> {
+): Promise<{ keyword: string; startTime: number; endTime: number }[]> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -84,42 +99,65 @@ async function translateWithOpenAI(
     },
     body: JSON.stringify({
       model: "gpt-4o-mini",
-      temperature: 0.3,
+      temperature: 0.4,
       response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
           content:
-            "You are a professional subtitle translator. Return valid JSON only.",
+            "You extract visual keywords from subtitle segments. Return valid JSON only.",
         },
-        {
-          role: "user",
-          content:
-            prompt +
-            '\n\nWrap the result in a JSON object: {"segments": [...]}',
-        },
+        { role: "user", content: prompt },
       ],
     }),
   });
 
-  if (!res.ok) throw new Error("OpenAI translation service unavailable");
+  if (!res.ok) throw new Error("OpenAI keyword extraction unavailable");
 
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error("Empty response from OpenAI");
 
   const parsed = JSON.parse(content);
-  const segments: unknown[] = parsed.segments ?? parsed;
 
-  if (!Array.isArray(segments) || !segments.every(isValidSegment)) {
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("keywords" in parsed)
+  ) {
     throw new Error("OpenAI returned unexpected structure");
   }
 
-  return segments;
+  const list = (parsed as { keywords: unknown }).keywords;
+  if (!Array.isArray(list) || !list.every(isKeywordEntry)) {
+    throw new Error("OpenAI returned unexpected keyword structure");
+  }
+
+  return list;
+}
+
+function postProcessKeywords(
+  list: { keyword: string; startTime: number; endTime: number }[],
+) {
+  const keywords = list.map((k) => ({
+    keyword: k.keyword.trim().slice(0, 120),
+    startTime: Math.max(0, k.startTime),
+    endTime: Math.max(0, k.endTime),
+  }));
+
+  for (const k of keywords) {
+    if (k.startTime > k.endTime) {
+      const t = k.startTime;
+      k.startTime = k.endTime;
+      k.endTime = t;
+    }
+  }
+
+  return keywords;
 }
 
 export async function POST(req: NextRequest) {
-  let body: { segments?: unknown; targetLanguage?: unknown; provider?: unknown };
+  let body: { segments?: unknown; provider?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -127,27 +165,12 @@ export async function POST(req: NextRequest) {
   }
 
   const { segments } = body;
-  const targetLanguage = (
-    VALID_LANGUAGES.includes(body.targetLanguage as TargetLanguage)
-      ? body.targetLanguage
-      : "he"
-  ) as TargetLanguage;
 
   const provider = (
     VALID_PROVIDERS.includes(body.provider as LLMProvider)
       ? body.provider
       : "gemini"
   ) as LLMProvider;
-
-  if (targetLanguage === "original") {
-    if (!Array.isArray(segments) || !segments.every(isValidSegment)) {
-      return NextResponse.json(
-        { error: "Invalid segment format" },
-        { status: 400 },
-      );
-    }
-    return NextResponse.json({ segments });
-  }
 
   if (!Array.isArray(segments) || segments.length === 0) {
     return NextResponse.json(
@@ -176,11 +199,10 @@ export async function POST(req: NextRequest) {
     text: s.text.slice(0, 500),
   }));
 
-  const langName = LANGUAGE_NAMES[targetLanguage];
-  const prompt = buildPrompt(sanitized, langName);
+  const prompt = buildPrompt(sanitized);
 
   try {
-    let translated: SubtitleSegment[];
+    let rawKeywords: { keyword: string; startTime: number; endTime: number }[];
 
     if (provider === "openai") {
       const apiKey = process.env.OPENAI_API_KEY;
@@ -190,7 +212,7 @@ export async function POST(req: NextRequest) {
           { status: 500 },
         );
       }
-      translated = await translateWithOpenAI(prompt, apiKey);
+      rawKeywords = await extractWithOpenAI(prompt, apiKey);
     } else {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
@@ -199,14 +221,15 @@ export async function POST(req: NextRequest) {
           { status: 500 },
         );
       }
-      translated = await translateWithGemini(prompt, apiKey);
+      rawKeywords = await extractWithGemini(prompt, apiKey);
     }
 
-    return NextResponse.json({ segments: translated });
+    const keywords = postProcessKeywords(rawKeywords);
+    return NextResponse.json({ keywords });
   } catch (err) {
-    console.error("Translation error:", err);
+    console.error("extract-keywords error:", err);
     const message =
-      err instanceof Error ? err.message : "Translation failed";
+      err instanceof Error ? err.message : "Keyword extraction failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

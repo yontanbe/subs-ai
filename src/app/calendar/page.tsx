@@ -1,7 +1,7 @@
 import CalendarView from "@/components/CalendarView";
 
 export const metadata = {
-  title: "Content Calendar — SubsAI",
+  title: "Content Calendar — ReelMix",
 };
 
 export default function CalendarPage() {

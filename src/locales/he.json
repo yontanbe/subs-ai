@@ -1,0 +1,114 @@
+{
+  "nav": {
+    "editor": "עורך",
+    "calendar": "לוח שנה",
+    "signIn": "התחברות",
+    "signOut": "התנתקות",
+    "getStarted": "התחלה"
+  },
+  "home": {
+    "badge": "100% שכבה חינמית",
+    "welcomePrefix": "שלום, ",
+    "title1": "כתוביות לווידאו,",
+    "title2": "מתורגמות וצרובות",
+    "subtitle": "העלו סרטון. Whisper מתמלל. Gemini מתרגם. עצבו כתוביות, בחרו מוזיקת רקע, וייצאו — הכל בדפדפן.",
+    "openEditor": "פתח עורך",
+    "contentCalendar": "לוח תוכן",
+    "getStartedFree": "התחילו בחינם",
+    "signIn": "התחברות",
+    "howItWorks": "איך זה עובד",
+    "step1Title": "העלאה",
+    "step1Desc": "גררו את קובץ הווידאו",
+    "step2Title": "תמלול ותרגום",
+    "step2Desc": "בינה מלאכותית הופכת דיבור לטקסט",
+    "step3Title": "ייצוא",
+    "step3Desc": "הורידו עם כתוביות צרובות",
+    "featureShowcase": "כל מה שצריך",
+    "featureShowcaseDesc": "ערכת כלים מלאה ליצירת תוכן עם כתוביות מקצועיות",
+    "platformPreview": "פלט מוכן לפלטפורמות",
+    "platformPreviewDesc": "מותאם לכל פלטפורמת וידאו קצר מרכזית",
+    "ctaTitle": "מוכנים לכתוביות לווידאו שלכם?",
+    "ctaDesc": "התחילו ליצור תוכן עם כתוביות מקצועיות תוך דקות — לגמרי בחינם.",
+    "ctaButton": "התחילו עכשיו — בחינם"
+  },
+  "editor": {
+    "title": "עורך",
+    "subtitle": "העלאה, תמלול, תרגום, עיצוב וייצוא",
+    "subtitles": "כתוביות",
+    "segmentsDetected": "קטעים זוהו",
+    "translating": "מתרגם…",
+    "retranslate": "תרגום מחדש",
+    "translate": "תרגם",
+    "burnExport": "צריבת כתוביות וייצוא",
+    "download": "הורדת וידאו",
+    "complete": "הושלם",
+    "loadingFFmpeg": "טוען FFmpeg…",
+    "preparingFiles": "מכין קבצים…",
+    "downloadingMusic": "מוריד מוזיקה…",
+    "burningSubtitles": "צורב כתוביות…"
+  },
+  "media": {
+    "title": "מדיה",
+    "searchPlaceholder": "חיפוש מילות מפתח…",
+    "all": "הכל",
+    "ai": "בינה מלאכותית",
+    "photos": "תמונות",
+    "gifs": "גיפים",
+    "emptySearch": "חפשו מילות מפתח כדי למצוא תמונות",
+    "addAsOverlay": "הוסף כשכבת על"
+  },
+  "music": {
+    "title": "מוזיקה",
+    "searchPlaceholder": "חיפוש מוזיקה…"
+  },
+  "style": {
+    "title": "סגנון כתוביות",
+    "fontSize": "גודל גופן",
+    "textColor": "צבע טקסט",
+    "outlineColor": "קו מתאר",
+    "font": "גופן"
+  },
+  "upload": {
+    "dropzone": "גררו את הווידאו לכאן או לחצו לעיון",
+    "formats": "נתמכים MP4, MOV, WebM"
+  },
+  "youtube": {
+    "title": "ייבוא מיוטיוב",
+    "placeholder": "הדביקו כתובת YouTube…",
+    "import": "ייבוא",
+    "importing": "מייבא…"
+  },
+  "overlay": {
+    "title": "שכבות תמונה",
+    "addOverlay": "הוסף שכבת על",
+    "position": "מיקום",
+    "animation": "אנימציה",
+    "scale": "קנה מידה",
+    "startTime": "התחלה",
+    "endTime": "סיום",
+    "remove": "הסר",
+    "noOverlays": "עדיין לא נוספו שכבות על"
+  },
+  "safeZone": {
+    "title": "אזורים בטוחים",
+    "toggle": "הצג אזורים בטוחים",
+    "instagram": "Instagram Reels",
+    "tiktok": "TikTok",
+    "youtube": "YouTube Shorts"
+  },
+  "layout": {
+    "title": "פריסת וידאו",
+    "pip": "תמונה בתוך תמונה",
+    "sideBySide": "זה לצד זה",
+    "topBottom": "למעלה ולמטה"
+  },
+  "language": {
+    "original": "מקור",
+    "hebrew": "עברית",
+    "english": "אנגלית"
+  },
+  "calendar": {
+    "title": "לוח תוכן",
+    "addEntry": "הוסף רשומה"
+  }
+}

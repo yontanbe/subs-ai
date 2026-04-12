@@ -17,9 +17,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SubsAI — Hebrew Video Subtitles",
+  title: "ReelMix — AI Video Studio",
   description:
-    "Transcribe, translate to Hebrew, and burn subtitles into your videos with AI",
+    "Subtitles, B-roll, music, and layouts — mixed and burned into your video with AI, right in the browser.",
 };
 
 export const viewport: Viewport = {
@@ -36,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="he"
+      lang="en"
       dir="ltr"
       className={`${outfit.variable} ${jetbrains.variable} h-full`}
     >

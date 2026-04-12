@@ -1,6 +1,6 @@
-# SubsAI — Hebrew Video Subtitle App
+# ReelMix — AI Video Studio
 
-Upload a video, transcribe with Whisper (Groq or OpenAI), translate to Hebrew with Gemini, customize subtitle style (size, color), add keyword images/GIFs and royalty-free background music, then export with burned-in subtitles. Includes per-user authentication and a content calendar for Instagram, TikTok, and YouTube planning.
+Upload a video, transcribe with Whisper (Groq or OpenAI), translate subtitles with Gemini, add auto B-roll overlays (images/GIFs), combine with YouTube imports in split/PiP layouts, add royalty-free background music, then export with burned-in subtitles and overlays — all in the browser. Includes per-user authentication and a content calendar.
 
 ## Tech Stack
 

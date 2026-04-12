@@ -23,7 +23,7 @@ export function generateASS(
   const outlineASS = colorToASS(style.outlineColor);
 
   const header = `[Script Info]
-Title: SubsAI
+Title: ReelMix
 ScriptType: v4.00+
 WrapStyle: 0
 PlayResX: 1920
