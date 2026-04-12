@@ -176,17 +176,19 @@ export default function EditorPage() {
         kwData.keywords;
 
       const newOverlays: ImageOverlay[] = [];
+      // B-roll best practice: alternate between full-screen and corner positions
+      // Full-screen B-roll = industry standard for context shots
       const positions: OverlayPosition[] = [
+        "center",     // Full-screen B-roll
+        "center",     // Full-screen B-roll
         "bottom-right",
-        "bottom-left",
+        "center",     // Full-screen B-roll
         "top-right",
-        "top-left",
-        "center",
       ];
       const animations: OverlayAnimation[] = [
         "fade-in",
-        "slide-up",
         "zoom",
+        "slide-up",
         "slide-left",
         "slide-right",
       ];
@@ -194,11 +196,12 @@ export default function EditorPage() {
       for (let i = 0; i < keywords.length; i++) {
         const kw = keywords[i];
         setOverlayProgress(
-          `Fetching media for "${kw.keyword}"... (${i + 1}/${keywords.length})`,
+          `Fetching B-roll for "${kw.keyword}"… (${i + 1}/${keywords.length})`,
         );
 
         let items: MediaItem[] = [];
 
+        // Fetch from all sources (Pexels images + GIPHY GIFs)
         try {
           const mediaRes = await fetch("/api/keywords", {
             method: "POST",
@@ -227,16 +230,19 @@ export default function EditorPage() {
           } catch { /* skip */ }
         }
 
-        const preferGif = i % 2 === 1;
-        const mediaItem = preferGif
-          ? items.find((m) => m.type === "gif") || items.find((m) => m.type === "image")
-          : items.find((m) => m.type === "image") || items.find((m) => m.type === "gif");
+        // Prefer Pexels images for full-screen B-roll (higher quality)
+        // Use GIFs for smaller corner overlays
+        const pos = positions[i % positions.length];
+        const isFullScreen = pos === "center";
+        const mediaItem = isFullScreen
+          ? items.find((m) => m.type === "image" && m.source === "pexels") || items.find((m) => m.type === "image") || items[0]
+          : items.find((m) => m.type === "gif" && m.source === "giphy") || items.find((m) => m.type === "image") || items[0];
 
         if (mediaItem) {
-          const pos = positions[i % positions.length];
           const duration = kw.endTime - kw.startTime;
-          const adjustedEnd = duration < 1.5 ? kw.startTime + 1.5 : kw.endTime;
-          const overlayScale = pos === "center" ? 0.4 : 0.25;
+          const adjustedEnd = duration < 2 ? kw.startTime + 2.5 : kw.endTime;
+          // Full-screen B-roll: 90% of video area. Corner overlays: 40%
+          const overlayScale = isFullScreen ? 0.9 : 0.4;
           newOverlays.push({
             id: crypto.randomUUID(),
             imageUrl: mediaItem.url,

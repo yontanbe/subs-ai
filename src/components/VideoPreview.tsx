@@ -180,6 +180,8 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
         {activeOverlays.map((overlay) => {
           const anim = overlayAnimationClass(overlay.animation);
           const pos = overlayPositionClass(overlay.position);
+          const scale = overlay.scale || 0.4;
+          const isFullScreen = overlay.position === "center" && scale > 0.7;
 
           return (
             <div
@@ -189,11 +191,14 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
               <img
                 src={overlay.imageUrl}
                 alt=""
-                className="object-contain rounded-lg shadow-lg"
-                style={{
-                  width: `${(overlay.scale || 0.25) * 100}%`,
-                  maxHeight: `${(overlay.scale || 0.25) * 100}%`,
-                }}
+                className={isFullScreen
+                  ? "object-cover rounded-lg shadow-2xl"
+                  : "object-contain rounded-lg shadow-lg"
+                }
+                style={isFullScreen
+                  ? { width: "92%", height: "80%", objectFit: "cover", borderRadius: "12px" }
+                  : { width: `${scale * 100}%`, maxHeight: `${scale * 100}%` }
+                }
               />
             </div>
           );
