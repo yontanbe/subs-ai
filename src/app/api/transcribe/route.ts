@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SubtitleSegment, TranscriptionEngine } from "@/types";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 const ALLOWED_TYPES = [

@@ -268,8 +268,19 @@ export default function EditorPage() {
         method: "POST",
         body: formData,
       });
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const errJson = JSON.parse(text);
+          throw new Error(errJson.error || "Transcription failed");
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error(res.status === 413 ? "File too large (max 25 MB). Try a shorter clip." : `Server error: ${res.status}`);
+          }
+          throw e;
+        }
+      }
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
       setSegments(data.segments);
       setIsTranslated(false);
       runAutoOverlayPipeline(data.segments);
@@ -352,20 +363,23 @@ export default function EditorPage() {
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="relative mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+      {/* Subtle background texture */}
+      <div className="pointer-events-none fixed inset-0 dot-grid-subtle opacity-20" />
+
       {/* Header with step indicators */}
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="relative mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white/90">
+          <h1 className="text-[26px] font-bold tracking-tight text-white/90">
             Video Editor
           </h1>
-          <p className="mt-1 text-[13px] text-white/35">
+          <p className="mt-1.5 text-[13px] text-white/30">
             Upload, transcribe, enhance, and export your video
           </p>
         </div>
 
-        {/* Step progress */}
-        <div className="flex items-center gap-1">
+        {/* Step progress — premium pill */}
+        <div className="glass-premium flex items-center gap-1 rounded-full px-2 py-1.5">
           {STEP_META.map((step, i) => {
             const isActive = step.id === activeStep;
             const isDone =
@@ -374,19 +388,19 @@ export default function EditorPage() {
               <div key={step.id} className="flex items-center">
                 {i > 0 && (
                   <div
-                    className={`mx-1.5 h-px w-6 transition-colors ${
-                      isDone ? "bg-[#3dd6c8]" : "bg-white/10"
+                    className={`mx-1 h-px w-5 transition-colors duration-300 ${
+                      isDone ? "bg-[#3dd6c8]/50" : "bg-white/[0.06]"
                     }`}
                   />
                 )}
                 <div className="flex items-center gap-1.5">
                   <div
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition-all ${
+                    className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-all duration-300 ${
                       isDone
-                        ? "bg-[#3dd6c8] text-black"
+                        ? "step-done text-black"
                         : isActive
-                          ? "bg-[#e09145] text-white shadow-lg shadow-[#e09145]/30"
-                          : "bg-white/[0.06] text-white/30"
+                          ? "step-active text-white"
+                          : "bg-white/[0.04] text-white/25"
                     }`}
                   >
                     {isDone ? (
@@ -398,8 +412,8 @@ export default function EditorPage() {
                     )}
                   </div>
                   <span
-                    className={`text-[11px] font-medium transition-colors ${
-                      isActive ? "text-white/80" : "text-white/30"
+                    className={`text-[11px] font-medium transition-colors duration-300 ${
+                      isActive ? "text-white/80" : "text-white/25"
                     }`}
                   >
                     {step.label}
@@ -413,7 +427,7 @@ export default function EditorPage() {
 
       {/* Upload step */}
       {activeStep === "upload" && (
-        <div className="mx-auto max-w-2xl space-y-6">
+        <div className="relative mx-auto max-w-2xl space-y-6">
           <VideoUploader
             onVideoSelected={handleVideoSelected}
             onTranscribe={handleTranscribe}
@@ -427,14 +441,14 @@ export default function EditorPage() {
       {activeStep === "edit" && (
         <div className="space-y-6">
           {/* Change video button */}
-          <div className="flex items-center justify-between">
-            <p className="text-[12px] text-white/35">
+          <div className="flex items-center justify-between rounded-xl border border-white/[0.04] bg-white/[0.015] px-4 py-3">
+            <p className="text-[12px] font-medium text-white/35">
               {videoFile?.name}
-              {videoDuration > 0 && ` · ${Math.round(videoDuration)}s`}
+              {videoDuration > 0 && <span className="ml-2 text-white/20">{Math.round(videoDuration)}s</span>}
             </p>
             <button
               onClick={handleResetToUpload}
-              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-white/50 transition hover:border-white/15 hover:text-white/70"
+              className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3.5 py-1.5 text-[11px] font-semibold text-white/45 transition-all duration-200 hover:border-white/[0.12] hover:bg-white/[0.05] hover:text-white/70"
             >
               Change video
             </button>
@@ -442,16 +456,16 @@ export default function EditorPage() {
 
           {/* Auto B-roll status */}
           {(isGeneratingOverlays || overlayProgress) && (
-            <div className="flex items-center gap-3 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-5 py-3">
+            <div className="glass-premium flex items-center gap-3 rounded-2xl border border-[#3dd6c8]/15 px-5 py-3.5">
               {isGeneratingOverlays && (
                 <span className="spinner" style={{ borderTopColor: "#3dd6c8" }} />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-cyan-300">
+                <p className="text-[13px] font-semibold text-[#3dd6c8]/80">
                   {isGeneratingOverlays ? "Auto-generating B-roll" : "B-roll ready"}
                 </p>
                 {overlayProgress && (
-                  <p className="truncate text-[11px] text-white/40">{overlayProgress}</p>
+                  <p className="truncate text-[11px] text-white/35">{overlayProgress}</p>
                 )}
               </div>
             </div>
@@ -500,7 +514,7 @@ export default function EditorPage() {
             {/* Sidebar with tabs */}
             <div className="space-y-4">
               {/* Tab switcher */}
-              <div className="flex rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+              <div className="glass-premium flex rounded-xl p-1">
                 {(
                   [
                     { id: "style" as const, label: "Style" },
@@ -512,10 +526,10 @@ export default function EditorPage() {
                   <button
                     key={tab.id}
                     onClick={() => setSidebarTab(tab.id)}
-                    className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-semibold transition-all ${
+                    className={`flex-1 rounded-lg px-3 py-2.5 text-[12px] font-semibold transition-all duration-200 ${
                       sidebarTab === tab.id
-                        ? "bg-white/[0.08] text-white/90 shadow-sm"
-                        : "text-white/35 hover:text-white/55"
+                        ? "bg-white/[0.08] text-white/90 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                        : "text-white/30 hover:text-white/55 hover:bg-white/[0.02]"
                     }`}
                   >
                     {tab.label}
@@ -591,11 +605,11 @@ export default function EditorPage() {
           </div>
 
           {/* Export section - pinned to bottom */}
-          <div className="glass sticky bottom-4 z-20 rounded-2xl border border-white/[0.08] p-5">
+          <div className="glass-premium sticky bottom-4 z-20 rounded-2xl p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-[15px] font-bold text-white/90">Ready to export</h3>
-                <p className="mt-0.5 text-[12px] text-white/35">
+                <p className="mt-1 text-[12px] text-white/30">
                   {segments.length} subtitles · {overlays.length} overlays
                   {selectedTrack ? ` · Music: ${selectedTrack.title}` : ""}
                   {titleText ? ` · Title: "${titleText}"` : ""}
