@@ -8,6 +8,7 @@ interface Props {
   onTranscribe: (engine: TranscriptionEngine) => void;
   isProcessing: boolean;
   statusMessage?: string;
+  uploadProgress?: number;
 }
 
 export default function VideoUploader({
@@ -15,17 +16,26 @@ export default function VideoUploader({
   onTranscribe,
   isProcessing,
   statusMessage,
+  uploadProgress,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
+  const [fileSize, setFileSize] = useState<string>("");
   const [engine, setEngine] = useState<TranscriptionEngine>("groq");
   const [dragOver, setDragOver] = useState(false);
+
+  const formatSize = (bytes: number) => {
+    if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    return (bytes / 1024).toFixed(0) + " KB";
+  };
 
   const handleFile = useCallback(
     (file: File) => {
       if (!file.type.startsWith("video/")) return;
       setFileName(file.name);
+      setFileSize(formatSize(file.size));
       setPreview(URL.createObjectURL(file));
       onVideoSelected(file);
     },
@@ -41,6 +51,15 @@ export default function VideoUploader({
     },
     [handleFile]
   );
+
+  // Determine step from statusMessage
+  const step = statusMessage?.includes("Uploading")
+    ? 1
+    : statusMessage?.includes("Extracting") || statusMessage?.includes("Processing")
+      ? 2
+      : statusMessage?.includes("Transcribing")
+        ? 3
+        : 0;
 
   return (
     <div className="animate-fade-up space-y-4">
@@ -84,7 +103,7 @@ export default function VideoUploader({
             or drag a video here
           </p>
           <p className="mt-1.5 text-[11px] text-white/25">
-            MP4, MOV, WebM — under 1 minute
+            MP4, MOV, WebM — any size from your phone
           </p>
         </div>
         <input
@@ -103,43 +122,108 @@ export default function VideoUploader({
 
       {preview && (
         <div className="animate-fade-up space-y-4">
-          <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-black">
+          {/* Video preview — proper aspect ratio */}
+          <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl">
             <video
               src={preview}
               controls
-              className="w-full"
+              className="block w-full h-auto max-h-[60vh]"
               playsInline
+              style={{ objectFit: "contain", background: "#000" }}
             />
           </div>
-          <p className="truncate font-mono text-[11px] text-white/30">
-            {fileName}
-          </p>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/30">
-                Engine
-              </label>
-              <select
-                value={engine}
-                onChange={(e) =>
-                  setEngine(e.target.value as TranscriptionEngine)
-                }
-                className="input-glass w-full rounded-xl px-3 py-2.5 text-[13px] text-white/80"
-              >
-                <option value="groq">Groq Whisper — Free</option>
-                <option value="openai">OpenAI Whisper — Paid</option>
-              </select>
-            </div>
-            <button
-              onClick={() => onTranscribe(engine)}
-              disabled={isProcessing}
-              className="btn-glow flex h-[42px] items-center justify-center gap-2 rounded-xl px-6 text-[13px] font-semibold text-white disabled:opacity-50"
-            >
-              {isProcessing && <span className="spinner" />}
-              {isProcessing ? (statusMessage || "Transcribing…") : "Transcribe"}
-            </button>
+          {/* File info */}
+          <div className="flex items-center justify-center gap-3 text-[11px] text-white/30">
+            <span className="truncate max-w-[200px] font-mono">{fileName}</span>
+            <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-white/40">{fileSize}</span>
           </div>
+
+          {/* Processing steps */}
+          {isProcessing && (
+            <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${step >= 1 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
+                  {step > 1 ? "✓" : "1"}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-[13px] font-medium ${step === 1 ? "text-white/90" : step > 1 ? "text-white/40" : "text-white/25"}`}>
+                    Uploading video
+                  </p>
+                  {step === 1 && uploadProgress !== undefined && (
+                    <div className="mt-1.5">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#e09145] to-[#f0b678] transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[11px] text-white/30">{uploadProgress}%</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${step >= 2 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
+                  {step > 2 ? "✓" : "2"}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-[13px] font-medium ${step === 2 ? "text-white/90" : step > 2 ? "text-white/40" : "text-white/25"}`}>
+                    Extracting audio
+                  </p>
+                  {step === 2 && (
+                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-[#e09145]/60 to-[#f0b678]/60" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${step >= 3 ? "bg-[#e09145] text-white" : "bg-white/[0.06] text-white/30"}`}>
+                  {step > 3 ? "✓" : "3"}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-[13px] font-medium ${step === 3 ? "text-white/90" : step > 3 ? "text-white/40" : "text-white/25"}`}>
+                    Transcribing with AI
+                  </p>
+                  {step === 3 && (
+                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-[#e09145]/60 to-[#f0b678]/60" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Engine selector + button — hidden while processing */}
+          {!isProcessing && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/30">
+                  Engine
+                </label>
+                <select
+                  value={engine}
+                  onChange={(e) =>
+                    setEngine(e.target.value as TranscriptionEngine)
+                  }
+                  className="input-glass w-full rounded-xl px-3 py-2.5 text-[13px] text-white/80"
+                >
+                  <option value="groq">Groq Whisper — Free</option>
+                  <option value="openai">OpenAI Whisper — Paid</option>
+                </select>
+              </div>
+              <button
+                onClick={() => onTranscribe(engine)}
+                className="btn-glow flex h-[42px] items-center justify-center gap-2 rounded-xl px-6 text-[13px] font-semibold text-white"
+              >
+                Transcribe
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

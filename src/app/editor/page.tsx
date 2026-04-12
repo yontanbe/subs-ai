@@ -67,6 +67,7 @@ export default function EditorPage() {
   const [style, setStyle] = useState<SubtitleStyle>(DEFAULT_STYLE);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeStatus, setTranscribeStatus] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslated, setIsTranslated] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState<TargetLanguage>("he");
@@ -260,34 +261,61 @@ export default function EditorPage() {
   const handleTranscribe = async (_engine: TranscriptionEngine) => {
     if (!videoFile) return;
     setIsTranscribing(true);
+    setUploadProgress(0);
     setTranscribeStatus("Uploading video…");
     try {
-      // Send video directly to Railway backend (handles any file size, native ffmpeg)
       const formData = new FormData();
       formData.append("file", videoFile);
       formData.append("engine", aiConfig.transcription);
 
       const apiBase = process.env.NEXT_PUBLIC_TRANSCRIBE_API || "https://reelmix-api-production.up.railway.app";
 
-      setTranscribeStatus("Processing & transcribing…");
+      // Use XMLHttpRequest for upload progress
+      const data = await new Promise<{ segments: SubtitleSegment[] }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", apiBase + "/transcribe");
 
-      const res = await fetch(apiBase + "/transcribe", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        try {
-          const errJson = JSON.parse(text);
-          throw new Error(errJson.error || "Transcription failed");
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("Server error: " + res.status);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(pct);
+            if (pct >= 100) {
+              setTranscribeStatus("Extracting audio…");
+            }
           }
-          throw e;
-        }
-      }
-      const data = await res.json();
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch {
+              reject(new Error("Invalid response from server"));
+            }
+          } else {
+            try {
+              const err = JSON.parse(xhr.responseText);
+              reject(new Error(err.error || "Transcription failed"));
+            } catch {
+              reject(new Error("Server error: " + xhr.status));
+            }
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error — check your connection"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out — try a smaller file"));
+        xhr.timeout = 300000; // 5 min timeout
+
+        // After upload completes, server processes — update status
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState === 3) {
+            setTranscribeStatus("Transcribing with AI…");
+          }
+        };
+
+        xhr.send(formData);
+      });
+
       setSegments(data.segments);
       setIsTranslated(false);
       runAutoOverlayPipeline(data.segments);
@@ -441,6 +469,7 @@ export default function EditorPage() {
             onTranscribe={handleTranscribe}
             isProcessing={isTranscribing}
             statusMessage={transcribeStatus}
+            uploadProgress={uploadProgress}
           />
           <FileHistory key={historyKey} />
         </div>
