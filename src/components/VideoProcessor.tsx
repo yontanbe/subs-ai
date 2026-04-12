@@ -253,7 +253,7 @@ export default function VideoProcessor({
       <div className="animate-fade-up space-y-4">
         {!canExport && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-[13px] text-amber-400">
-            Export is not supported in this browser. Please use Chrome, Edge, or Firefox on desktop, or Chrome on Android. Safari and in-app browsers (Instagram, Facebook) do not support video export.
+            Export is not available in this browser. In-app browsers (Instagram, Facebook, TikTok) do not support video processing. Please open this link in Safari, Chrome, or Firefox instead.
           </div>
         )}
 
