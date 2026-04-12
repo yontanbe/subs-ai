@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useUser } from "@clerk/nextjs";
 import { useEffect, useRef } from "react";
 
 /* ─── Data ────────────────────────────────────────────────────────────── */
@@ -148,8 +148,8 @@ const PARTICLES = Array.from({ length: 50 }, (_, i) => ({
 /* ─── Component ───────────────────────────────────────────────────────── */
 
 export default function Home() {
-  const { data: session, status } = useSession();
-  const isLoggedIn = status === "authenticated";
+  const { isSignedIn, user } = useUser();
+  const isLoggedIn = !!isSignedIn;
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
@@ -212,7 +212,7 @@ export default function Home() {
             <span className="h-2 w-2 rounded-full bg-[#3dd6c8] animate-pulse" />
             <span className="text-xs font-medium tracking-wide text-white/50">
               {isLoggedIn
-                ? `Welcome back, ${session?.user?.name || session?.user?.email}`
+                ? `Welcome back, ${user?.firstName || user?.emailAddresses?.[0]?.emailAddress || ""}`
                 : "100% browser-based · No install needed"}
             </span>
           </div>

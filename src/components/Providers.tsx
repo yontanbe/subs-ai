@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { SessionProvider } from "next-auth/react";
 import { I18nProvider, useTranslation } from "@/lib/i18n";
 
 function LocaleSync({ children }: { children: React.ReactNode }) {
@@ -17,10 +16,8 @@ function LocaleSync({ children }: { children: React.ReactNode }) {
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
-      <I18nProvider>
-        <LocaleSync>{children}</LocaleSync>
-      </I18nProvider>
-    </SessionProvider>
+    <I18nProvider>
+      <LocaleSync>{children}</LocaleSync>
+    </I18nProvider>
   );
 }

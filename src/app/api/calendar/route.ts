@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
-import { auth } from "@/lib/auth";
+import { auth } from "@clerk/nextjs/server";
 
 function getDb() {
   if (!process.env.DATABASE_URL) {
@@ -10,8 +10,8 @@ function getDb() {
 }
 
 async function getUserId(): Promise<string | null> {
-  const session = await auth();
-  return session?.user?.id ?? null;
+  const { userId } = await auth();
+  return userId;
 }
 
 export async function GET(req: NextRequest) {

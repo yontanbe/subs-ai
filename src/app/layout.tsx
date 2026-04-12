@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit, JetBrains_Mono } from "next/font/google";
+import { Manrope, JetBrains_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import NavBar from "@/components/NavBar";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
 });
@@ -26,7 +27,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#050507",
+  themeColor: "#030305",
 };
 
 export default function RootLayout({
@@ -38,13 +39,15 @@ export default function RootLayout({
     <html
       lang="en"
       dir="ltr"
-      className={`${outfit.variable} ${jetbrains.variable} h-full`}
+      className={`${manrope.variable} ${jetbrains.variable} h-full`}
     >
       <body className="min-h-full flex flex-col antialiased">
-        <Providers>
-          <NavBar />
-          <main className="flex-1">{children}</main>
-        </Providers>
+        <ClerkProvider>
+          <Providers>
+            <NavBar />
+            <main className="flex-1">{children}</main>
+          </Providers>
+        </ClerkProvider>
       </body>
     </html>
   );
