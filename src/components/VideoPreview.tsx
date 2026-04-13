@@ -109,9 +109,9 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
   const showSafeZoneOverlay = showSafeZones && safeZonesVisible;
 
   return (
-    <div className="animate-fade-up relative w-full overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl shadow-black/50">
+    <div className="animate-fade-up mx-auto flex w-full flex-col items-center">
       {showSafeZones && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2">
+        <div className="mb-3 flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
           <span className="text-[11px] font-medium uppercase tracking-wide text-white/40">
             Safe zones
           </span>
@@ -164,14 +164,24 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
         </div>
       )}
 
-      <div className="relative mx-auto flex items-center justify-center bg-black" style={{ maxHeight: "70vh" }}>
+      <div
+        className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl shadow-black/50"
+        style={{ maxHeight: "70vh", maxWidth: "100%" }}
+      >
         <video
           ref={videoRef}
           src={videoUrl}
           controls
           playsInline
-          className="block max-h-[70vh] w-auto max-w-full mx-auto"
-          style={{ objectFit: "contain", background: "#000" }}
+          className="block"
+          style={{
+            maxHeight: "70vh",
+            maxWidth: "100%",
+            width: "auto",
+            height: "auto",
+            objectFit: "contain",
+            background: "#000",
+          }}
         />
 
         {showSafeZoneOverlay && (
