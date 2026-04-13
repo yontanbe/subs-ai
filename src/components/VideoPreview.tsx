@@ -164,13 +164,14 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
         </div>
       )}
 
-      <div className="relative">
+      <div className="relative mx-auto flex items-center justify-center bg-black" style={{ maxHeight: "70vh" }}>
         <video
           ref={videoRef}
           src={videoUrl}
           controls
           playsInline
-          className="w-full"
+          className="block max-h-[70vh] w-auto max-w-full mx-auto"
+          style={{ objectFit: "contain", background: "#000" }}
         />
 
         {showSafeZoneOverlay && (
