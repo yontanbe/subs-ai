@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { logStep, logError } from "@/lib/clientLog";
 import type {
   ImageOverlay,
   LayoutConfig,
@@ -38,7 +39,25 @@ export default function VideoProcessor({
   const [error, setError] = useState<string | null>(null);
 
   const handleProcess = async () => {
-    if (!videoFile || segments.length === 0) return;
+    await logStep("export", "button-clicked", {
+      hasVideo: !!videoFile,
+      segmentCount: segments.length,
+      overlayCount: overlays.length,
+      videoSize: videoFile?.size,
+      videoType: videoFile?.type,
+    });
+
+    if (!videoFile) {
+      await logError("export", new Error("No video file"));
+      setError("No video file to export");
+      return;
+    }
+    if (segments.length === 0) {
+      await logError("export", new Error("No segments"));
+      setError("Transcribe the video first before exporting");
+      return;
+    }
+
     setProcessing(true);
     setOutputUrl(null);
     setError(null);
@@ -46,13 +65,15 @@ export default function VideoProcessor({
     setProgressPct(0);
 
     try {
+      await logStep("export", "building-formdata");
       const formData = new FormData();
       formData.append("file", videoFile);
       formData.append("segments", JSON.stringify(segments));
       formData.append("style", JSON.stringify(style));
       formData.append("overlays", JSON.stringify(overlays));
 
-      // Upload with progress
+      await logStep("export", "starting-upload", { apiBase: API_BASE, videoSizeMB: (videoFile.size / 1024 / 1024).toFixed(2) });
+
       const blob = await new Promise<Blob>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", API_BASE + "/export");
@@ -68,22 +89,25 @@ export default function VideoProcessor({
         xhr.upload.onload = () => {
           setProgressPct(50);
           setProgress("Processing video on server…");
+          logStep("export", "upload-complete-processing-on-server");
         };
 
-        xhr.onload = () => {
+        xhr.onload = async () => {
+          await logStep("export", "xhr-onload", { status: xhr.status, responseType: xhr.response?.type, size: xhr.response?.size });
           if (xhr.status >= 200 && xhr.status < 300) {
             setProgressPct(100);
             setProgress("Complete!");
             resolve(xhr.response);
           } else {
-            // Try to read error from blob
             const reader = new FileReader();
-            reader.onload = () => {
+            reader.onload = async () => {
+              const text = reader.result as string;
+              await logError("export", new Error("Server returned " + xhr.status), { responseText: text.slice(0, 500) });
               try {
-                const err = JSON.parse(reader.result as string);
+                const err = JSON.parse(text);
                 reject(new Error(err.error || "Export failed"));
               } catch {
-                reject(new Error("Server error: " + xhr.status));
+                reject(new Error("Server error " + xhr.status + ": " + text.slice(0, 100)));
               }
             };
             reader.onerror = () => reject(new Error("Server error: " + xhr.status));
@@ -91,17 +115,27 @@ export default function VideoProcessor({
           }
         };
 
-        xhr.onerror = () => reject(new Error("Network error — check your connection"));
-        xhr.ontimeout = () => reject(new Error("Export timed out — try a shorter video"));
-        xhr.timeout = 600000; // 10 min
+        xhr.onerror = async () => {
+          await logError("export", new Error("XHR network error"), { status: xhr.status });
+          reject(new Error("Network error — check your connection"));
+        };
+        xhr.ontimeout = async () => {
+          await logError("export", new Error("XHR timeout"));
+          reject(new Error("Export timed out — try a shorter video"));
+        };
+        xhr.timeout = 600000;
 
         xhr.send(formData);
       });
 
+      await logStep("export", "got-blob", { size: blob.size, type: blob.type });
+
       const url = URL.createObjectURL(blob);
       setOutputUrl(url);
+      await logStep("export", "blob-url-created");
       onExportComplete?.();
     } catch (err) {
+      await logError("export", err);
       setError(err instanceof Error ? err.message : "Processing failed");
     } finally {
       setProcessing(false);
@@ -183,22 +217,25 @@ export default function VideoProcessor({
                 </div>
                 <button
                   onClick={async () => {
+                    await logStep("download", "button-clicked");
                     try {
                       const response = await fetch(outputUrl);
                       const blob = await response.blob();
                       const fileName = `reelmix-${Date.now()}.mp4`;
                       const file = new File([blob], fileName, { type: "video/mp4" });
 
-                      // iOS/mobile: use native Share sheet
+                      await logStep("download", "blob-ready", { size: blob.size, canShare: typeof navigator.canShare === "function" });
+
                       if (
                         typeof navigator.canShare === "function" &&
                         navigator.canShare({ files: [file] })
                       ) {
+                        await logStep("download", "using-web-share");
                         await navigator.share({ files: [file], title: "ReelMix video" });
                         return;
                       }
 
-                      // Desktop: traditional download
+                      await logStep("download", "using-anchor-download");
                       const downloadUrl = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = downloadUrl;
@@ -208,7 +245,11 @@ export default function VideoProcessor({
                       document.body.removeChild(a);
                       setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
                     } catch (err) {
-                      if (err instanceof Error && err.name === "AbortError") return;
+                      if (err instanceof Error && err.name === "AbortError") {
+                        await logStep("download", "user-cancelled");
+                        return;
+                      }
+                      await logError("download", err);
                       window.open(outputUrl, "_blank");
                     }
                   }}
