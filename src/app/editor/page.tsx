@@ -103,8 +103,9 @@ export default function EditorPage() {
     setHistoryKey((k) => k + 1);
   }, [videoFile, videoUrl, videoDuration, segments, overlays, targetLanguage, selectedTrack]);
 
+  // Stay on "upload" until we have segments — this keeps the transcription modal visible during processing
   const activeStep: EditorStep =
-    !videoFile || (segments.length === 0 && !isTranscribing)
+    !videoFile || segments.length === 0
       ? "upload"
       : "edit";
 
