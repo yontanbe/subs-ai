@@ -43,7 +43,8 @@ export default function VideoUploader({
 
   const handleFile = useCallback(
     (file: File) => {
-      if (!file.type.startsWith("video/")) return;
+      const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|webm|avi|mkv|m4v|3gp)$/i.test(file.name);
+      if (!isVideo) return;
 
       // Revoke previous preview URL
       if (preview) URL.revokeObjectURL(preview);

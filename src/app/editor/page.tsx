@@ -530,20 +530,21 @@ export default function EditorPage() {
             </div>
           )}
 
-          {/* Main editing layout: preview + sidebar */}
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
-            {/* Preview & timeline column */}
-            <div className="space-y-4">
-              <VideoPreview
-                ref={previewRef}
-                videoUrl={videoUrl}
-                segments={segments}
-                style={style}
-                overlays={overlays}
-                showSafeZones
-                onTimeUpdate={handleTimeUpdate}
-              />
+          {/* Video preview — always centered, same size regardless of format */}
+          <VideoPreview
+            ref={previewRef}
+            videoUrl={videoUrl}
+            segments={segments}
+            style={style}
+            overlays={overlays}
+            showSafeZones
+            onTimeUpdate={handleTimeUpdate}
+          />
 
+          {/* Controls grid: timeline+subtitles left, sidebar right */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
+            {/* Left column: timeline + subtitle editor */}
+            <div className="space-y-4">
               {/* Timeline */}
               <VideoTimeline
                 videoUrl={videoUrl}

@@ -165,8 +165,8 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
       )}
 
       <div
-        className="relative w-full overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl shadow-black/50"
-        style={{ height: "340px" }}
+        className="relative mx-auto w-full max-w-lg overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl shadow-black/50"
+        style={{ height: "360px" }}
       >
         <video
           ref={videoRef}
