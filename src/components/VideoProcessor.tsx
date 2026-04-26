@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { logStep, logError } from "@/lib/clientLog";
 import type {
   ImageOverlay,
@@ -38,6 +38,15 @@ export default function VideoProcessor({
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
+
   const handleProcess = async () => {
     await logStep("export", "button-clicked", {
       hasVideo: !!videoFile,
@@ -65,67 +74,117 @@ export default function VideoProcessor({
     setProgressPct(0);
 
     try {
-      await logStep("export", "building-formdata");
       const formData = new FormData();
       formData.append("file", videoFile);
       formData.append("segments", JSON.stringify(segments));
       formData.append("style", JSON.stringify(style));
       formData.append("overlays", JSON.stringify(overlays));
 
-      await logStep("export", "starting-upload", { apiBase: API_BASE, videoSizeMB: (videoFile.size / 1024 / 1024).toFixed(2) });
+      await logStep("export", "starting-upload-v2", {
+        apiBase: API_BASE,
+        videoSizeMB: (videoFile.size / 1024 / 1024).toFixed(2),
+      });
 
-      const blob = await new Promise<Blob>((resolve, reject) => {
+      // ── Phase 1: Upload video + queue job ────────────────────────────────
+      // XHR preserves upload progress tracking; fetch does not.
+      const { jobId } = await new Promise<{ jobId: string }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", API_BASE + "/export");
-        xhr.responseType = "blob";
+        xhr.open("POST", API_BASE + "/export/submit");
+        xhr.setRequestHeader("Accept", "application/json");
 
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 50);
-            setProgressPct(pct);
+            // Upload = 0–30% of total displayed progress
+            setProgressPct(Math.round((e.loaded / e.total) * 30));
           }
         };
 
         xhr.upload.onload = () => {
-          setProgressPct(50);
-          setProgress("Processing video on server…");
-          logStep("export", "upload-complete-processing-on-server");
+          setProgressPct(30);
+          setProgress("Queued — encoding on server…");
+          logStep("export", "upload-complete-job-queued");
         };
 
-        xhr.onload = async () => {
-          await logStep("export", "xhr-onload", { status: xhr.status, responseType: xhr.response?.type, size: xhr.response?.size });
+        xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            setProgressPct(100);
-            setProgress("Complete!");
-            resolve(xhr.response);
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch {
+              reject(new Error("Invalid server response"));
+            }
           } else {
-            const reader = new FileReader();
-            reader.onload = async () => {
-              const text = reader.result as string;
-              await logError("export", new Error("Server returned " + xhr.status), { responseText: text.slice(0, 500) });
-              try {
-                const err = JSON.parse(text);
-                reject(new Error(err.error || "Export failed"));
-              } catch {
-                reject(new Error("Server error " + xhr.status + ": " + text.slice(0, 100)));
-              }
-            };
-            reader.onerror = () => reject(new Error("Server error: " + xhr.status));
-            reader.readAsText(xhr.response);
+            try {
+              reject(new Error(JSON.parse(xhr.responseText).error || "Submit failed"));
+            } catch {
+              reject(new Error(`Server error ${xhr.status}`));
+            }
           }
         };
 
-        xhr.onerror = async () => {
-          await logError("export", new Error("XHR network error"), { status: xhr.status });
-          reject(new Error("Network error — check your connection"));
-        };
-        xhr.ontimeout = async () => {
-          await logError("export", new Error("XHR timeout"));
-          reject(new Error("Export timed out — try a shorter video"));
-        };
-        xhr.timeout = 600000;
+        xhr.onerror = () => reject(new Error("Network error — check your connection"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out — try a smaller file"));
+        xhr.timeout = 300000; // 5 min for upload only
 
         xhr.send(formData);
+      });
+
+      await logStep("export", "job-submitted", { jobId });
+
+      // ── Phase 2: Poll for status, download when done ──────────────────────
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        const pollStart = Date.now();
+
+        pollIntervalRef.current = setInterval(async () => {
+          try {
+            // Client-side safety net: give up after 15 minutes
+            if (Date.now() - pollStart > 15 * 60 * 1000) {
+              clearInterval(pollIntervalRef.current!);
+              pollIntervalRef.current = null;
+              reject(new Error("Export timed out after 15 minutes — please try again"));
+              return;
+            }
+
+            const res = await fetch(`${API_BASE}/export/status/${jobId}`);
+            const data = await res.json();
+
+            if (res.status === 404 || data.status === "error") {
+              clearInterval(pollIntervalRef.current!);
+              pollIntervalRef.current = null;
+              await logError("export", new Error(data.error || "Encoding failed"), { jobId });
+              reject(new Error(data.error || "Encoding failed"));
+              return;
+            }
+
+            if (data.status === "done") {
+              clearInterval(pollIntervalRef.current!);
+              pollIntervalRef.current = null;
+              setProgressPct(99);
+              setProgress("Downloading…");
+              await logStep("export", "encoding-done-downloading", { jobId });
+
+              const dlRes = await fetch(`${API_BASE}/export/download/${jobId}`);
+              if (!dlRes.ok) {
+                reject(new Error(`Download failed (${dlRes.status})`));
+                return;
+              }
+              resolve(await dlRes.blob());
+              return;
+            }
+
+            // Still in progress — map server progress (0–100) to display (30–99)
+            const displayPct = 30 + Math.round((data.progress / 100) * 69);
+            setProgressPct(Math.min(99, displayPct));
+
+            const labels: Record<string, string> = {
+              queued: "Queued…",
+              uploading: "Preparing video…",
+              encoding: "Encoding video…",
+            };
+            setProgress(labels[data.status] ?? "Processing…");
+          } catch {
+            // Network hiccup during polling — silently retry next tick
+          }
+        }, 2000);
       });
 
       await logStep("export", "got-blob", { size: blob.size, type: blob.type });
@@ -139,6 +198,10 @@ export default function VideoProcessor({
       setError(err instanceof Error ? err.message : "Processing failed");
     } finally {
       setProcessing(false);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     }
   };
 
