@@ -27,6 +27,7 @@ export default function VideoUploader({
   const [sizeWarning, setSizeWarning] = useState<string>("");
   const [engine, setEngine] = useState<TranscriptionEngine>("openai");
   const [dragOver, setDragOver] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
   // Revoke object URL on unmount or when preview changes
   useEffect(() => {
@@ -34,6 +35,13 @@ export default function VideoUploader({
       if (preview) URL.revokeObjectURL(preview);
     };
   }, [preview]);
+
+  // Elapsed timer during processing — shows users something is happening
+  useEffect(() => {
+    if (!isProcessing) { setElapsed(0); return; }
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [isProcessing]);
 
   const formatSize = (bytes: number) => {
     if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " GB";
@@ -253,9 +261,14 @@ export default function VideoUploader({
                   </div>
                 </div>
 
-                <p className="mt-6 text-center text-[11px] text-white/25">
-                  Please keep this tab open while processing
-                </p>
+                <div className="mt-6 flex items-center justify-center gap-3">
+                  <p className="text-[11px] text-white/25">Keep this tab open</p>
+                  {elapsed > 0 && (
+                    <span className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-mono text-white/40">
+                      {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}

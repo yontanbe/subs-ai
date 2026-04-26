@@ -85,6 +85,7 @@ export default function EditorPage() {
   const [titleDuration, setTitleDuration] = useState(3);
   const [aiConfig, setAIConfig] = useState<AIModelConfig>(DEFAULT_AI_CONFIG);
   const [historyKey, setHistoryKey] = useState(0);
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
 
   const handleExportComplete = useCallback(async () => {
     const thumb = videoUrl ? await captureThumbnail(videoUrl) : undefined;
@@ -114,6 +115,7 @@ export default function EditorPage() {
     setVideoDuration(0);
     setSegments([]);
     setIsTranslated(false);
+    setTargetLanguage("he");
     setOverlays([]);
     setSecondaryVideoFile(null);
     setLayoutConfig(DEFAULT_LAYOUT);
@@ -123,6 +125,7 @@ export default function EditorPage() {
     setOverlayProgress("");
     setMediaItems([]);
     setSelectedTrack(null);
+    setTranscribeError(null);
   };
 
   const [sidebarTab, setSidebarTab] = useState<"style" | "media" | "layout" | "ai">("style");
@@ -168,7 +171,8 @@ export default function EditorPage() {
       });
       const kwData = await kwRes.json();
       if (kwData.error || !kwData.keywords?.length) {
-        setOverlayProgress("");
+        setOverlayProgress("No keywords found — B-roll skipped");
+        setTimeout(() => setOverlayProgress(""), 3000);
         return;
       }
 
@@ -243,7 +247,10 @@ export default function EditorPage() {
 
         if (mediaItem) {
           const duration = kw.endTime - kw.startTime;
-          const adjustedEnd = duration < 2 ? kw.startTime + 2.5 : kw.endTime;
+          const adjustedEnd = Math.min(
+            duration < 2 ? kw.startTime + 2.5 : kw.endTime,
+            videoDuration > 0 ? videoDuration - 0.1 : kw.endTime
+          );
           // Full-screen B-roll: 90% of video area. Corner overlays: 40%
           const overlayScale = isFullScreen ? 0.9 : 0.4;
           newOverlays.push({
@@ -277,6 +284,7 @@ export default function EditorPage() {
   const handleTranscribe = async (engine: TranscriptionEngine) => {
     if (!videoFile) return;
     setIsTranscribing(true);
+    setTranscribeError(null);
     setUploadProgress(0);
     setTranscribeStatus("Uploading video…");
     try {
@@ -337,11 +345,12 @@ export default function EditorPage() {
         xhr.send(formData);
       });
 
+      if (!data.segments?.length) throw new Error("No speech detected — check the video has audio");
       setSegments(data.segments);
       setIsTranslated(false);
       runAutoOverlayPipeline(data.segments);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Transcription failed");
+      setTranscribeError(err instanceof Error ? err.message : "Transcription failed");
     } finally {
       setIsTranscribing(false);
       setTranscribeStatus("");
@@ -362,7 +371,7 @@ export default function EditorPage() {
       setSegments(data.segments);
       setIsTranslated(true);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Translation failed");
+      setTranscribeError(err instanceof Error ? err.message : "Translation failed");
     } finally {
       setIsTranslating(false);
     }
@@ -485,6 +494,18 @@ export default function EditorPage() {
       {/* Upload step */}
       {activeStep === "upload" && (
         <div className="relative mx-auto max-w-2xl space-y-6">
+          {transcribeError && (
+            <div className="flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4">
+              <svg className="mt-0.5 h-4 w-4 shrink-0 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-red-400">Transcription failed</p>
+                <p className="mt-0.5 text-[12px] text-red-400/70">{transcribeError}</p>
+              </div>
+              <button onClick={() => setTranscribeError(null)} className="text-red-400/50 hover:text-red-400">✕</button>
+            </div>
+          )}
           <VideoUploader
             onVideoSelected={handleVideoSelected}
             onTranscribe={handleTranscribe}
@@ -512,6 +533,20 @@ export default function EditorPage() {
               Change video
             </button>
           </div>
+
+          {/* Error banner (translation failures etc.) */}
+          {transcribeError && (
+            <div className="flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4">
+              <svg className="mt-0.5 h-4 w-4 shrink-0 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-red-400">Error</p>
+                <p className="mt-0.5 text-[12px] text-red-400/70">{transcribeError}</p>
+              </div>
+              <button onClick={() => setTranscribeError(null)} className="text-red-400/50 hover:text-red-400">✕</button>
+            </div>
+          )}
 
           {/* Auto B-roll status */}
           {(isGeneratingOverlays || overlayProgress) && (
