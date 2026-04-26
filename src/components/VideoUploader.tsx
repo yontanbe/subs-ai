@@ -150,14 +150,14 @@ export default function VideoUploader({
 
       {preview && (
         <div className="animate-fade-up space-y-4">
-          {/* Video preview — proper aspect ratio */}
-          <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl">
+          {/* Video preview — fixed-height container, video fits inside regardless of format */}
+          <div className="relative mx-auto w-full overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl" style={{ height: "320px" }}>
             <video
               src={preview}
               controls
-              className="block w-full h-auto max-h-[60vh]"
               playsInline
-              style={{ objectFit: "contain", background: "#000" }}
+              className="absolute inset-0 w-full h-full"
+              style={{ objectFit: "contain" }}
             />
           </div>
 
