@@ -165,23 +165,16 @@ const VideoPreview = forwardRef<VideoPreviewHandle, Props>(function VideoPreview
       )}
 
       <div
-        className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl shadow-black/50"
-        style={{ maxHeight: "70vh", maxWidth: "100%" }}
+        className="relative w-full overflow-hidden rounded-2xl border border-white/[0.06] bg-black shadow-2xl shadow-black/50"
+        style={{ height: "340px" }}
       >
         <video
           ref={videoRef}
           src={videoUrl}
           controls
           playsInline
-          className="block"
-          style={{
-            maxHeight: "70vh",
-            maxWidth: "100%",
-            width: "auto",
-            height: "auto",
-            objectFit: "contain",
-            background: "#000",
-          }}
+          className="absolute inset-0 w-full h-full"
+          style={{ objectFit: "contain" }}
         />
 
         {showSafeZoneOverlay && (

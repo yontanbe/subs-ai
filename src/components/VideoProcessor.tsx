@@ -275,8 +275,8 @@ export default function VideoProcessor({
 
             {outputUrl && (
               <div className="space-y-4">
-                <div className="overflow-hidden rounded-xl border border-white/[0.06]">
-                  <video src={outputUrl} controls playsInline className="w-full" />
+                <div className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-black" style={{ height: "280px" }}>
+                  <video src={outputUrl} controls playsInline className="absolute inset-0 w-full h-full" style={{ objectFit: "contain" }} />
                 </div>
                 <button
                   onClick={async () => {
